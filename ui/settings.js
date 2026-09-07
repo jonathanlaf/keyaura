@@ -1,8 +1,18 @@
+import { isNewerVersion } from './release-version.mjs';
+
 const { invoke } = window.__TAURI__.core;
 const { listen, emit } = window.__TAURI__.event;
 
 let cfg = await invoke('get_config');
+const appVersion = await invoke('get_app_version');
+await emit('macro-recording', false);
 const $ = (id) => document.getElementById(id);
+const restoredStatus = sessionStorage.getItem('keyaura-settings-status');
+if (restoredStatus) {
+  sessionStorage.removeItem('keyaura-settings-status');
+  const status = $('settings-data-status');
+  if (status) status.textContent = restoredStatus;
+}
 
 async function resetAllSettings() {
   const status = $('settings-data-status');
@@ -10,25 +20,128 @@ async function resetAllSettings() {
   try {
     cfg = await invoke('reset_config');
     if (status) status.textContent = 'Settings reset to defaults.';
-    setTimeout(() => window.location.reload(), 250);
+    setTimeout(() => window.location.reload(), 1000);
   } catch (err) {
     if (status) status.textContent = `Reset failed: ${err}`;
   }
 }
-window.resetAllSettings = resetAllSettings;
 
 const tabSections = new Map([
   ['layout', 'General'], ['appearance', 'Appearance'], ['fonts', 'Fonts'],
   ['interaction', 'Interaction'], ['position', 'Position'],
 ]);
+const settingSearch = $('settings-search');
+const tooltip = document.createElement('div');
+tooltip.className = 'setting-tooltip';
+document.body.append(tooltip);
 const headings = [...document.querySelectorAll('h2')];
+for (const row of document.querySelectorAll('.row:has(input[type="range"])')) {
+  const label = row.querySelector(':scope > label');
+  if (!label) continue;
+  const nextRow = row.nextElementSibling;
+  const nextHint = nextRow?.querySelector('.hint');
+  const nextRowHasControl = !!nextRow?.querySelector('input, select, button');
+  const info = document.createElement('span');
+  info.className = 'setting-info';
+  info.textContent = 'i';
+  const description = nextHint && !nextRowHasControl
+    ? nextHint.textContent.trim()
+    : `Adjust ${label.textContent.trim().toLowerCase()}.`;
+  info.dataset.tooltip = description;
+  info.tabIndex = 0;
+  info.setAttribute('aria-label', description);
+  const placeTooltip = () => {
+    const rect = info.getBoundingClientRect();
+    const width = 240;
+    tooltip.textContent = description;
+    tooltip.classList.add('visible');
+    const height = tooltip.getBoundingClientRect().height;
+    const left = Math.max(8, Math.min(rect.left + 18, window.innerWidth - width - 8));
+    const above = rect.top - height - 8;
+    const top = above >= 8 ? above : Math.min(window.innerHeight - height - 8, rect.bottom + 8);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${Math.max(8, top)}px`;
+  };
+  const hideTooltip = () => tooltip.classList.remove('visible');
+  info.addEventListener('mouseenter', placeTooltip);
+  info.addEventListener('focus', placeTooltip);
+  info.addEventListener('mouseleave', hideTooltip);
+  info.addEventListener('blur', hideTooltip);
+  label.append(info);
+}
 for (const [tab, title] of tabSections) {
   const heading = headings.find((node) => node.textContent.trim() === title);
   if (!heading) continue;
   heading.dataset.tabSection = tab;
   heading.nextElementSibling?.setAttribute('data-tab-section', tab);
 }
+for (const [tab, title] of tabSections) {
+  const category = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+  const items = document.createElement('div');
+  items.className = 'tree-items';
+  items.dataset.treeTab = tab;
+  const cards = [...document.querySelectorAll(`[data-tab-section="${tab}"]`)].filter((node) => node.matches('.card'));
+  const seen = new Set();
+  for (const card of cards) {
+    for (const row of card.querySelectorAll('.row')) {
+      const label = row.querySelector('label[for]');
+      const control = label ? $(label.htmlFor) : row.querySelector('[id]');
+      if (!control || seen.has(control.id) || control.id.endsWith('-val')) continue;
+      const fallback = row.querySelector(':scope > span:first-child');
+      // The range labels gained a tooltip button above. Build the
+      // sidebar title from a copy without that control so its visible `i`
+      // glyph never becomes part of entries such as “Shift icon size”.
+      const labelText = label
+        ? (() => {
+          const copy = label.cloneNode(true);
+          copy.querySelectorAll('.setting-info').forEach((node) => node.remove());
+          return copy.textContent;
+        })()
+        : '';
+      const text = (labelText || row.querySelector('strong')?.textContent || fallback?.textContent || '').trim();
+      if (fallback?.classList.contains('hint')) continue;
+      if (!text) continue;
+      seen.add(control.id);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tree-item';
+      item.textContent = text;
+      item.title = text;
+      item.addEventListener('click', () => {
+        selectTab(tab);
+        const rowTarget = control.closest('.row') || control;
+        rowTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        rowTarget.classList.remove('setting-focus');
+        void control.offsetWidth;
+        rowTarget.classList.add('setting-focus');
+        setTimeout(() => rowTarget.classList.remove('setting-focus'), 1200);
+      });
+      items.append(item);
+    }
+  }
+  category?.after(items);
+}
+settingSearch.addEventListener('input', () => {
+  const query = settingSearch.value.trim().toLowerCase();
+  for (const category of document.querySelectorAll('.tab-button')) {
+    const items = category.nextElementSibling;
+    if (!items?.classList.contains('tree-items')) continue;
+    let visible = 0;
+    for (const item of items.querySelectorAll('.tree-item')) {
+      const match = !query || item.textContent.toLowerCase().includes(query);
+      item.hidden = !match;
+      if (match) visible += 1;
+    }
+    category.hidden = !!query && visible === 0;
+    items.hidden = !!query && visible === 0;
+  }
+});
 function selectTab(tab) {
+  const title = tabSections.get(tab);
+  if (title) {
+    void invoke('set_settings_title', { title }).catch(() => {});
+    document.title = `KeyAura Settings — ${title}`;
+  }
   for (const button of document.querySelectorAll('.tab-button')) {
     const active = button.dataset.tab === tab;
     button.classList.toggle('active', active);
@@ -37,17 +150,51 @@ function selectTab(tab) {
   for (const node of document.querySelectorAll('[data-tab-section]')) {
     node.hidden = node.dataset.tabSection !== tab;
   }
+  for (const items of document.querySelectorAll('[data-tree-tab]')) {
+    items.hidden = items.dataset.treeTab !== tab;
+  }
+  if (settingSearch.value) settingSearch.dispatchEvent(new Event('input'));
 }
 document.querySelectorAll('.tab-button').forEach((button) => {
   button.addEventListener('click', () => selectTab(button.dataset.tab));
 });
 selectTab('layout');
 
+async function refreshKeyboardOverview() {
+  const details = await invoke('get_keyboard_details');
+  $('keyboard-model').textContent = `${details.model || 'Unknown'} by ${details.manufacturer || 'Unknown'}`;
+  $('layout-name').textContent = details.layout_name || details.revision_name || 'Not detected';
+  $('layout-identity').textContent = details.layout && details.revision ? `${details.layout}/${details.revision}` : 'Not detected';
+  const connected = !!details.online;
+  $('connection-status').textContent = connected ? 'Connected' : 'Disconnected';
+  const button = $('connection-toggle');
+  button.textContent = connected ? 'Disconnect' : 'Connect';
+  button.classList.toggle('connected', connected);
+  button.classList.toggle('disconnected', !connected);
+}
+$('app-version').textContent = `Version ${appVersion}`;
+await refreshKeyboardOverview().catch(() => {});
+for (const event of ['keyboard-online', 'keyboard-offline']) listen(event, () => refreshKeyboardOverview().catch(() => {}));
+$('connection-toggle').addEventListener('click', async () => {
+  const details = await invoke('get_keyboard_details');
+  await invoke('set_keyboard_connection', { connected: !details.online });
+  await refreshKeyboardOverview();
+});
+fetch('https://api.github.com/repos/jonathanlaf/layer-hud/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  .then((response) => response.ok ? response.json() : null)
+  .then((release) => {
+    if (release?.tag_name && isNewerVersion(release.tag_name, appVersion)) {
+      $('update-status').textContent = `Update available: ${release.tag_name}`;
+      $('update-status').classList.add('available');
+    } else if (release?.tag_name) {
+      $('update-status').textContent = 'Up to date';
+      $('update-status').classList.add('current');
+    }
+  }).catch(() => {});
+
 for (const prefix of ['key', 'legend', 'layer_name']) {
   const family = $(`${prefix.replace('_', '-')}-font-family`);
-  const size = `${prefix}-font-size`;
   if (family) family.value = cfg[`${prefix}_font_family`] || '';
-  if ($(size)) { $(size).value = cfg[`${prefix}_font_size`]; $(`${size}-val`).value = cfg[`${prefix}_font_size`]; }
 }
 $('font-ligatures').checked = cfg.font_ligatures !== false;
 for (const button of document.querySelectorAll('[data-font-style]')) {
@@ -76,7 +223,9 @@ $('heatmap-color').value = cfg.heatmap_color;
 $('base-outline-color').value = cfg.base_outline_color;
 $('grab-outline-color').value = cfg.grab_outline_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
+$('start-hidden').checked = cfg.start_hidden;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
+$('layer-indicator').value = cfg.layer_indicator ?? 'icon';
 $('shift-icons').checked = cfg.show_shift_icons;
 $('alternate-action-icons').checked = cfg.show_alternate_action_icons;
 $('heatmap-toggle').checked = cfg.show_heatmap;
@@ -104,7 +253,14 @@ function push() {
   // (the overlay's drag/resize handler owns that field), so this doesn't
   // need to re-fetch it first — that used to be a client-side workaround
   // for a race the backend now closes with its own lock.
-  const attempt = pushChain.catch(() => {}).then(() => invoke('set_config', { config: cfg }));
+  const snapshot = structuredClone(cfg);
+  const attempt = pushChain.catch(() => {}).then(() => invoke('set_config', { config: snapshot })).then(() => {
+    $('settings-save-status').textContent = '';
+    return true;
+  }).catch(error => {
+    $('settings-save-status').textContent = `Could not save settings: ${error}`;
+    return false;
+  });
   pushChain = attempt;
   return attempt;
 }
@@ -222,6 +378,11 @@ for (const [id, field] of [
   ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
   ['key-spacing', 'key_spacing'],
   ['keyboard-halves-distance', 'keyboard_halves_distance'],
+  ['keyboard-halves-rotation', 'keyboard_halves_rotation'],
+  ['layer-pill-horizontal', 'layer_pill_horizontal'],
+  ['layer-pill-vertical', 'layer_pill_vertical'],
+  ['offline-pill-horizontal', 'offline_pill_horizontal'],
+  ['offline-pill-vertical', 'offline_pill_vertical'],
   ['hide-reveal', 'hide_reveal'],
   ['hide-animation-ms', 'hide_animation_ms'],
 ]) bindNumeric(id, field);
@@ -235,10 +396,12 @@ $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
   await push();
 });
+$('start-hidden').addEventListener('change', (e) => commit('start_hidden', e.target.checked));
 
 $('layer-action-icons').addEventListener('change', (e) => {
   commit('show_layer_action_icons', e.target.checked);
 });
+$('layer-indicator').addEventListener('change', (e) => commit('layer_indicator', e.target.value));
 
 $('shift-icons').addEventListener('change', (e) => {
   commit('show_shift_icons', e.target.checked);
@@ -278,9 +441,29 @@ $('base-outline-enabled').addEventListener('change', (e) => commit('base_outline
 $('grab-outline-enabled').addEventListener('change', (e) => commit('grab_outline_enabled', e.target.checked));
 $('hide-side').addEventListener('change', (e) => commit('hide_side', e.target.value));
 
+await listen('config-changed', (event) => {
+  if (!event.payload) return;
+  cfg = event.payload;
+  const indicator = $('layer-indicator');
+  if (indicator) indicator.value = cfg.layer_indicator ?? 'icon';
+  const slider = $('keyboard-halves-distance');
+  const box = $('keyboard-halves-distance-val');
+  if (slider && box) {
+    slider.value = cfg.keyboard_halves_distance;
+    box.value = cfg.keyboard_halves_distance;
+  }
+  const rotation = $('keyboard-halves-rotation');
+  const rotationValue = $('keyboard-halves-rotation-val');
+  if (rotation && rotationValue) {
+    rotation.value = cfg.keyboard_halves_rotation;
+    rotationValue.value = cfg.keyboard_halves_rotation;
+  }
+});
+
 let toggleMacroRecording = false;
 let recordedToggleMacro = [];
-$('toggle-macro-record').addEventListener('click', () => {
+$('toggle-macro-record').addEventListener('click', async () => {
+  await emit('macro-recording', true);
   toggleMacroRecording = true;
   recordedToggleMacro = [];
   $('toggle-macro-display').textContent = 'Recording…';
@@ -291,15 +474,18 @@ $('toggle-macro-stop').addEventListener('click', async () => {
   toggleMacroRecording = false;
   cfg.toggle_macro = recordedToggleMacro;
   await push();
+  await emit('macro-recording', false);
   $('toggle-macro-display').textContent = macroLabel(cfg.toggle_macro);
   $('toggle-macro-record').disabled = false;
   $('toggle-macro-stop').disabled = true;
 });
 await listen('key-event', (event) => {
-  if (!toggleMacroRecording || !event.payload?.pressed || event.payload.index == null) return;
+  if (!toggleMacroRecording || !event.payload?.pressed || !Number.isInteger(event.payload.index) || recordedToggleMacro.length >= 64) return;
   recordedToggleMacro.push(Number(event.payload.index));
   $('toggle-macro-display').textContent = macroLabel(recordedToggleMacro);
 });
+
+window.addEventListener('pagehide', () => { emit('macro-recording', false).catch(console.warn); });
 
 try {
   $('autostart').checked = await invoke('plugin:autostart|is_enabled');
@@ -365,13 +551,14 @@ async function alignWindow(axis) {
 }
 $('center-horizontal').addEventListener('click', () => alignWindow('horizontal'));
 $('center-vertical').addEventListener('click', () => alignWindow('vertical'));
-$('center-both').addEventListener('click', () => alignWindow('both'));
+$('align-top').addEventListener('click', () => alignWindow('top'));
+$('align-bottom').addEventListener('click', () => alignWindow('bottom'));
 $('reset-position').addEventListener('click', async () => {
   const status = $('settings-data-status');
-  if (status) status.textContent = 'Resetting overlay positions…';
+  if (status) status.textContent = 'Resetting layout…';
   try {
     await invoke('reset_window_positions');
-    if (status) status.textContent = 'Overlay positions reset to center.';
+    if (status) status.textContent = 'Layout position, size, and keyboard spacing reset.';
   } catch (err) {
     if (status) status.textContent = `Position reset failed: ${err}`;
     console.warn('layer-hud: could not reset window positions:', err);
@@ -380,12 +567,9 @@ $('reset-position').addEventListener('click', async () => {
 
 $('export-settings').addEventListener('click', async () => {
   try {
-    const blob = new Blob([await invoke('export_config')], { type: 'application/json' });
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-    const filename = `layer-hud-settings-${stamp}.json`;
-    a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
-    $('settings-data-status').textContent = `Exported to ~/Downloads/${filename}`;
+    await pushChain;
+    const path = await invoke('export_config');
+    $('settings-data-status').textContent = `Exported to ${path}`;
   }
   catch (err) { $('settings-data-status').textContent = String(err); }
 });
@@ -395,12 +579,20 @@ $('import-settings').addEventListener('click', async () => {
 });
 $('import-file').addEventListener('change', async (e) => {
   const file = e.target.files?.[0]; if (!file) return;
-  try { await invoke('import_config', { contents: await file.text() }); window.location.reload(); }
+  try {
+    await pushChain;
+    await invoke('import_config', { contents: await file.text() });
+    sessionStorage.setItem('keyaura-settings-status', `Imported ${file.name}`);
+    window.location.reload();
+  }
   catch (err) { $('settings-data-status').textContent = String(err); }
 });
-document.addEventListener('click', (event) => {
-  if (event.target.closest('#reset-settings') && !event.defaultPrevented) {
-    event.preventDefault();
-    if (confirm('Reset all settings to defaults?')) resetAllSettings();
-  }
+$('reset-settings').addEventListener('click', async () => {
+  $('reset-dialog').hidden = false;
+});
+$('reset-cancel').addEventListener('click', () => { $('reset-dialog').hidden = true; });
+$('reset-confirm').addEventListener('click', async () => {
+  $('reset-dialog').hidden = true;
+  await pushChain;
+  await resetAllSettings();
 });
