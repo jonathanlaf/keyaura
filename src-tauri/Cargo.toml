@@ -14,6 +14,7 @@ tokio = { version = "1", features = ["sync", "time"] }
 hidapi = { version = "2.6", default-features = false, features = ["macos-shared-device"] }
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
 
 [dev-dependencies]
 tempfile = "3"

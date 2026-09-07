@@ -66,6 +66,30 @@ pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRe
     }
 }
 
+/// Height needed by the rotated keyboard plus the currently enabled glow.
+/// The width remains the user's chosen width; rotation makes the keyboard
+/// taller, so expanding vertically preserves the apparent key size and keeps
+/// the translucent board behind every key rather than clipping it.
+pub(crate) fn overlay_height_for_width(width: f64, config: &crate::config::Config) -> f64 {
+    let content_width = (width - 2.0 * config.padding).max(1.0);
+    let board_width = 12.0 + config.keyboard_halves_distance;
+    let angle = config.keyboard_halves_rotation.abs().to_radians();
+    let rotated_height = 6.0 * (angle.cos() + angle.sin());
+    let shadow_extent = [
+        (config.show_key_shadows)
+            .then_some(config.key_shadow_distance + config.key_shadow_diffusion)
+            .unwrap_or(0.0),
+        (config.show_pressed_key_shadow)
+            .then_some(config.pressed_key_shadow_distance + config.pressed_key_shadow_diffusion)
+            .unwrap_or(0.0),
+    ]
+    .into_iter()
+    .fold(0.0_f64, f64::max);
+
+    (content_width / board_width * rotated_height + 2.0 * (config.padding + shadow_extent + 2.0))
+        .max(120.0)
+}
+
 /// Whether a saved rect's origin still falls within a monitor's *current*
 /// bounds. The same monitor (same monitor_key) can still go stale — a
 /// resolution/scaling change or a rearranged multi-monitor layout moves its
@@ -168,6 +192,19 @@ pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
 #[tauri::command]
 pub fn get_app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+#[tauri::command]
+pub fn get_overlay_geometry(app: AppHandle) -> Result<serde_json::Value, String> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| "overlay window is not available".to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    let size = window
+        .inner_size()
+        .map_err(|error| error.to_string())?
+        .to_logical::<f64>(scale);
+    Ok(serde_json::json!({ "width": size.width, "height": size.height }))
 }
 
 #[tauri::command]
@@ -308,10 +345,8 @@ pub async fn recalculate_window_geometry(app: AppHandle) -> Result<(), String> {
         .inner_size()
         .map_err(|e| e.to_string())?
         .to_logical::<f64>(scale);
-    let path = config_path(&app)?;
-    let distance = crate::config::load(&path).keyboard_halves_distance;
-    let ratio = (12.0 + distance) / 6.0;
-    let new_height = (size.width / ratio).max(120.0);
+    let config = crate::config::load(&config_path(&app)?);
+    let new_height = overlay_height_for_width(size.width, &config);
     let center_y = pos.y + size.height / 2.0;
     let new_y = center_y - new_height / 2.0;
     let rect = crate::config::WindowRect {
@@ -619,7 +654,7 @@ pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_layout_hash;
+    use super::{overlay_height_for_width, parse_layout_hash};
 
     #[test]
     fn parses_full_url() {
@@ -648,5 +683,18 @@ mod tests {
         assert_eq!(parse_layout_hash(""), None);
         assert_eq!(parse_layout_hash("https://example.com/foo"), None);
         assert_eq!(parse_layout_hash("has spaces"), None);
+    }
+
+    #[test]
+    fn rotation_and_glow_expand_the_overlay_height() {
+        let base = crate::config::Config::default();
+        let base_height = overlay_height_for_width(940.0, &base);
+        let mut rotated = base.clone();
+        rotated.keyboard_halves_rotation = 15.0;
+        assert!(overlay_height_for_width(940.0, &rotated) > base_height);
+        rotated.show_key_shadows = true;
+        rotated.key_shadow_distance = 20.0;
+        rotated.key_shadow_diffusion = 30.0;
+        assert!(overlay_height_for_width(940.0, &rotated) > base_height + 40.0);
     }
 }

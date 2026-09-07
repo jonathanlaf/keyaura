@@ -52,13 +52,24 @@ pub struct Config {
     pub pressed_key_border_opacity: f64,
     pub pressed_key_border_width: f64,
     pub key_border_radius: f64,
+    /// Retained for importing older preference exports. New preferences use
+    /// the independent layer and offline pill radii below.
     pub pill_border_radius: f64,
+    pub layer_pill_border_radius: f64,
+    pub offline_pill_border_radius: f64,
     pub show_key_shadows: bool,
     pub show_pressed_key_shadow: bool,
     pub key_shadow_color: String,
     pub pressed_key_shadow_color: String,
     pub key_shadow_opacity: f64,
     pub pressed_key_shadow_opacity: f64,
+    pub key_shadow_position: String,
+    pub pressed_key_shadow_position: String,
+    pub key_shadow_distance: f64,
+    pub pressed_key_shadow_distance: f64,
+    pub key_shadow_diffusion: f64,
+    pub pressed_key_shadow_diffusion: f64,
+    pub alternate_char_opacity: f64,
     pub key_spacing: f64,
     pub keyboard_halves_distance: f64,
     pub keyboard_halves_rotation: f64,
@@ -89,6 +100,8 @@ pub struct Config {
     pub font_ligatures: bool,
     pub window_by_monitor: HashMap<String, WindowRect>,
     pub last_monitor: Option<String>,
+    pub settings_window_width: f64,
+    pub settings_window_height: f64,
 }
 
 impl Default for Config {
@@ -136,12 +149,21 @@ impl Default for Config {
             pressed_key_border_width: 1.0,
             key_border_radius: 7.0,
             pill_border_radius: 999.0,
+            layer_pill_border_radius: 999.0,
+            offline_pill_border_radius: 999.0,
             show_key_shadows: false,
             show_pressed_key_shadow: true,
             key_shadow_color: "#ffffff".into(),
             pressed_key_shadow_color: "#7ad7ff".into(),
             key_shadow_opacity: 0.25,
             pressed_key_shadow_opacity: 0.85,
+            key_shadow_position: "glow".into(),
+            pressed_key_shadow_position: "glow".into(),
+            key_shadow_distance: 2.0,
+            pressed_key_shadow_distance: 4.0,
+            key_shadow_diffusion: 5.0,
+            pressed_key_shadow_diffusion: 5.0,
+            alternate_char_opacity: 1.0,
             key_spacing: 0.06,
             keyboard_halves_distance: 1.6,
             keyboard_halves_rotation: 0.0,
@@ -149,6 +171,8 @@ impl Default for Config {
             layer_pill_vertical: 8.0,
             offline_pill_horizontal: 50.0,
             offline_pill_vertical: 50.0,
+            settings_window_width: 860.0,
+            settings_window_height: 760.0,
             base_outline_enabled: true,
             base_outline_color: "#78b4ff".into(),
             base_outline_opacity: 0.6,
@@ -182,6 +206,8 @@ impl Config {
     pub fn apply_preferences(&mut self, mut incoming: Self) {
         incoming.window_by_monitor = std::mem::take(&mut self.window_by_monitor);
         incoming.last_monitor = self.last_monitor.take();
+        incoming.settings_window_width = self.settings_window_width;
+        incoming.settings_window_height = self.settings_window_height;
         incoming.oryx_url = std::mem::take(&mut self.oryx_url);
         incoming.oryx_revision = std::mem::take(&mut self.oryx_revision);
         incoming.overlay_pinned = self.overlay_pinned;
@@ -199,6 +225,17 @@ impl Config {
         }
         if !matches!(self.layer_indicator.as_str(), "none" | "textual" | "icon") {
             self.layer_indicator = "icon".into();
+        }
+        for position in [
+            &mut self.key_shadow_position,
+            &mut self.pressed_key_shadow_position,
+        ] {
+            if !matches!(
+                position.as_str(),
+                "glow" | "top-right" | "top-left" | "bottom-right" | "bottom-left"
+            ) {
+                *position = "glow".into();
+            }
         }
         self.toggle_macro.retain(|key| *key < 52);
         self.toggle_macro.truncate(64);
@@ -255,8 +292,15 @@ impl Config {
         self.pressed_key_border_width = self.pressed_key_border_width.clamp(0.0, 5.0);
         self.key_border_radius = self.key_border_radius.clamp(0.0, 30.0);
         self.pill_border_radius = self.pill_border_radius.clamp(0.0, 999.0);
+        self.layer_pill_border_radius = self.layer_pill_border_radius.clamp(0.0, 999.0);
+        self.offline_pill_border_radius = self.offline_pill_border_radius.clamp(0.0, 999.0);
         self.key_shadow_opacity = self.key_shadow_opacity.clamp(0.0, 1.0);
         self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
+        self.key_shadow_distance = self.key_shadow_distance.clamp(0.0, 20.0);
+        self.pressed_key_shadow_distance = self.pressed_key_shadow_distance.clamp(0.0, 20.0);
+        self.key_shadow_diffusion = self.key_shadow_diffusion.clamp(0.0, 30.0);
+        self.pressed_key_shadow_diffusion = self.pressed_key_shadow_diffusion.clamp(0.0, 30.0);
+        self.alternate_char_opacity = self.alternate_char_opacity.clamp(0.2, 1.0);
         self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
         self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);
         self.keyboard_halves_rotation = self.keyboard_halves_rotation.clamp(-15.0, 15.0);
@@ -269,14 +313,31 @@ impl Config {
         self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
         self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
         self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
+        self.settings_window_width = self.settings_window_width.clamp(680.0, 1600.0);
+        self.settings_window_height = self.settings_window_height.clamp(560.0, 1200.0);
     }
 }
 
 pub fn load(path: &Path) -> Config {
-    let mut cfg: Config = std::fs::read_to_string(path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
+    let text = std::fs::read_to_string(path).ok();
+    let mut cfg: Config = text
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_default();
+    // Split the former shared pill radius without changing existing users'
+    // appearance when their preference file is first read.
+    if let Some(value) = text
+        .as_deref()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+    {
+        let legacy = value.get("pill_border_radius").and_then(|v| v.as_f64());
+        if value.get("layer_pill_border_radius").is_none() {
+            cfg.layer_pill_border_radius = legacy.unwrap_or(cfg.layer_pill_border_radius);
+        }
+        if value.get("offline_pill_border_radius").is_none() {
+            cfg.offline_pill_border_radius = legacy.unwrap_or(cfg.offline_pill_border_radius);
+        }
+    }
     // Clamp on every read, not just set_config's write path, so a hand-edited
     // or otherwise out-of-range value on disk self-heals for every caller
     // (get_config, the window-restore read in main.rs, grab.rs's poll, etc.)
@@ -409,6 +470,16 @@ mod tests {
         let c = load(&path);
         assert_eq!(c.opacity, 1.0);
         assert_eq!(c.padding, 0.0);
+    }
+
+    #[test]
+    fn legacy_shared_pill_radius_migrates_to_both_pills() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(&path, r#"{"pill_border_radius":12.0}"#).unwrap();
+        let config = load(&path);
+        assert_eq!(config.layer_pill_border_radius, 12.0);
+        assert_eq!(config.offline_pill_border_radius, 12.0);
     }
 
     #[test]

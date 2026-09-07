@@ -12,6 +12,9 @@ use tauri::{Emitter, Listener, Manager};
 
 fn main() {
     tauri::Builder::default()
+        // Register first so a second launch exits before it can create a
+        // second overlay, keyboard connection, or tray menu.
+        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -100,6 +103,18 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "settings" && matches!(event, tauri::WindowEvent::Resized(_)) {
+                if let Ok(size) = window.inner_size() {
+                    let scale = window.scale_factor().unwrap_or(1.0);
+                    let logical = size.to_logical::<f64>(scale);
+                    if let Err(error) = app::update_config(window.app_handle(), |cfg| {
+                        cfg.settings_window_width = logical.width;
+                        cfg.settings_window_height = logical.height;
+                    }) {
+                        eprintln!("KeyAura: failed to persist settings window size: {error}");
+                    }
+                }
+            }
             if window.label() == "settings" && matches!(event, tauri::WindowEvent::Destroyed) {
                 // A pagehide IPC can be lost when WebKit is destroyed. Always
                 // release shortcut recording from the native close path too.
@@ -133,12 +148,11 @@ fn main() {
                     // current center, so dragging any corner grows/shrinks it
                     // without making the overlay drift or distort its padding.
                     if matches!(event, tauri::WindowEvent::Resized(_)) {
-                        let half_distance = app::config_path(app)
+                        let geometry_config = app::config_path(app)
                             .ok()
-                            .map(|path| config::load(&path).keyboard_halves_distance)
-                            .unwrap_or(1.6);
-                        let ratio = (12.0 + half_distance) / 6.0;
-                        let target_h = size.width / ratio;
+                            .map(|path| config::load(&path))
+                            .unwrap_or_default();
+                        let target_h = app::overlay_height_for_width(size.width, &geometry_config);
                         if (target_h - size.height).abs() > 1.0 {
                             size.height = target_h.max(120.0);
                             // Keep the corner being dragged anchored; only
@@ -162,11 +176,15 @@ fn main() {
                     }) {
                         eprintln!("KeyAura: failed to persist window rect: {e}");
                     }
+                    if matches!(event, tauri::WindowEvent::Resized(_)) {
+                        let _ = app.emit("overlay-geometry-changed", ());
+                    }
                 }
             }
         })
         .invoke_handler(tauri::generate_handler![
             app::get_app_version,
+            app::get_overlay_geometry,
             app::open_external_url,
             layout::refresh_layout,
             layout::load_layout,
