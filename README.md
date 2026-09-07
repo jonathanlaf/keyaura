@@ -105,7 +105,7 @@ Prepare a `release/vX.Y.Z` branch with matching versions in `Cargo.toml`, `Cargo
 
 The direct workflow call is necessary because tags pushed by GitHub's built-in token do not trigger another workflow. Manually pushed matching version tags still run the same release workflow. Retrying the release-branch workflow reuses an existing tag only if it points to the same merge commit; a conflicting tag is rejected without being moved.
 
-The release workflow checks tag ancestry and version consistency, builds the app, creates a **draft release with generated notes**, and attests the DMG. A tag that is not reachable from `main` is rejected and deleted by the workflow. Drafts require manual review/publication; the version badge shows the latest published release.
+The release workflow checks tag ancestry and version consistency, builds the app, and creates a **draft release whose notes are assembled from the titles and descriptions of PRs merged into that release branch**. Write useful feature-PR descriptions: they become the release notes. A tag that is not reachable from `main` is rejected and deleted by the workflow. Drafts require manual review/publication; the version badge shows the latest published release.
 
 Verify a downloaded DMG's GitHub build provenance with:
 
