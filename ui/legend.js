@@ -1,8 +1,14 @@
-import { LAYER_ACTIONS, layerTriggerList, triggerInstruction } from './layer-actions.mjs';
+import { LAYER_ACTIONS, layerTriggerList } from './layer-actions.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const $ = (id) => document.getElementById(id);
+
+// Keep the descriptive key name for instructions, but draw the same compact
+// symbols used by the keyboard overlay when a trigger is on a special key.
+const KEY_GLYPHS = {
+  ENTER: '⏎', SPACE: '␣', BACKSPACE: '⌫', DELETE: '⌦', TAB: '⇥', ESCAPE: '⎋',
+};
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -33,13 +39,33 @@ function render(layers) {
   const fragment = document.createDocumentFragment();
   for (const layer of layerTriggerList(layers)) {
     const item = element('li');
-    item.append(element('strong', `Layer ${layer.position}: `));
-    const instructions = layer.triggers.map(triggerInstruction);
-    item.append(document.createTextNode(instructions.length
-      ? instructions.join('; or ')
-      : layer.position === 0 ? 'base layer — release a held layer key to return when applicable.'
-        : 'no direct key shortcut configured.'));
-    if (layer.title !== `Layer ${layer.position}`) item.append(element('small', layer.title));
+    const defaultTitle = `Layer ${layer.position}`;
+    const heading = layer.title && layer.title !== defaultTitle
+      ? `Layer ${layer.position} - ${layer.title}`
+      : defaultTitle;
+    item.append(element('strong', heading));
+    if (layer.triggers.length) {
+      for (const trigger of layer.triggers) {
+        const action = LAYER_ACTIONS[trigger.slot];
+        const route = element('div', undefined, 'layer-route');
+        const icon = element('span', undefined, 'action-icon');
+        icon.style.setProperty('--action-icon', `url('icons/${action.icon}.svg')`);
+        icon.setAttribute('aria-label', action.name);
+        const glyph = KEY_GLYPHS[trigger.keyLabel];
+        const key = element('strong', glyph || trigger.keyLabel, 'key-chip');
+        if (glyph) key.classList.add('key-glyph');
+        key.setAttribute('aria-label', `${trigger.keyLabel} key`);
+        key.title = `${trigger.keyLabel} key`;
+        const description = `${action.instruction[0].toUpperCase()}${action.instruction.slice(1)} the ${trigger.keyLabel} key`;
+        route.append(icon, key, element('span', description, 'route-description'));
+        if (trigger.sourcePosition !== 0) route.append(element('small', `(from Layer ${trigger.sourcePosition})`));
+        item.append(route);
+      }
+    } else {
+      item.append(element('div', layer.position === 0
+        ? 'Base layer — release a held layer key to return when applicable.'
+        : 'No direct key shortcut configured.', 'route-description'));
+    }
     fragment.append(item);
   }
   $('layers').replaceChildren(fragment);
@@ -48,7 +74,6 @@ function render(layers) {
 let loadVersion = 0;
 async function reload() {
   const version = ++loadVersion;
-  $('reload').disabled = true;
   $('status').textContent = 'Loading layout…';
   try {
     const layout = await invoke('load_layout');
@@ -56,17 +81,19 @@ async function reload() {
     const layers = layout?.data?.layout?.revision?.layers;
     if (!Array.isArray(layers)) throw new Error('Layout has no layer data.');
     render(layers);
-    $('status').textContent = layers.length ? (layout.stale ? 'Using cached layout.' : '') : 'This layout has no layers.';
+    $('layers-description').textContent = layers.length
+      ? `Your keyboard has ${layers.length} layers configured; here’s how to access them individually.`
+      : 'Your keyboard has no layers configured.';
+    $('status').textContent = '';
   } catch (error) {
     if (version !== loadVersion) return;
     $('layers').replaceChildren();
-    $('status').textContent = `Could not load layers. Connect your Voyager and use Refresh layout from the tray. ${error}`;
+    $('status').textContent = `Could not load layers. Connect your Voyager and refresh the layout from the Developer menu. ${error}`;
   } finally {
-    if (version === loadVersion) $('reload').disabled = false;
+    // Layout refreshes arrive from the tray or HID watcher.
   }
 }
 
-$('reload').addEventListener('click', reload);
 // Install before loading, because the initial fetch can itself refresh the cache.
 try {
   await listen('layout-refreshed', reload);

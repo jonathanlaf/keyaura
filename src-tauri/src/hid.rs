@@ -242,6 +242,15 @@ pub fn spawn(app: AppHandle) {
         .spawn(move || {
             let mut online = false;
             loop {
+                if !app
+                    .state::<crate::state::HudState>()
+                    .hid_enabled
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    emit_offline(&app, &mut online);
+                    thread::sleep(Duration::from_millis(250));
+                    continue;
+                }
                 let Ok(api) = HidApi::new() else {
                     emit_offline(&app, &mut online);
                     thread::sleep(Duration::from_secs(2));
@@ -264,6 +273,14 @@ pub fn spawn(app: AppHandle) {
 
                 let mut packet = [0_u8; HID_BUFFER_LEN];
                 loop {
+                    if !app
+                        .state::<crate::state::HudState>()
+                        .hid_enabled
+                        .load(std::sync::atomic::Ordering::SeqCst)
+                    {
+                        emit_offline(&app, &mut online);
+                        break;
+                    }
                     match device.read_timeout(&mut packet, 250) {
                         Ok(0) => {}
                         Ok(n) => handle_packet(&app, &packet[..n]),

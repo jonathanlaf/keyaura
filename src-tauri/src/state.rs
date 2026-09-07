@@ -17,6 +17,7 @@ pub struct HudState {
     /// from disk on every tick just to check a value that rarely changes.
     pub grab_combo: Mutex<Vec<String>>,
     pub keyboard_online: AtomicBool,
+    pub hid_enabled: AtomicBool,
     /// -1 follows HID, 0 forces offline, 1 forces online (debug tray only).
     pub connection_override: AtomicI8,
     pub active_layer: AtomicU8,
@@ -39,6 +40,7 @@ impl HudState {
             config_lock: Mutex::new(()),
             grab_combo: Mutex::new(Vec::new()),
             keyboard_online: AtomicBool::new(false),
+            hid_enabled: AtomicBool::new(true),
             connection_override: AtomicI8::new(-1),
             active_layer: AtomicU8::new(0),
             macro_recording: AtomicBool::new(false),

@@ -1,50 +1,84 @@
-use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem};
+use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Listener, Manager};
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
-    let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
-    let toggle = MenuItem::with_id(app, "toggle", "Toggle overlay", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle", "Hide keyboard", true, None::<&str>)?;
     #[cfg(debug_assertions)]
     let force_connection = MenuItem::with_id(
         app,
         "force-connection",
-        "Force connected layout",
+        "Force connected state",
         true,
         None::<&str>,
     )?;
-    let pin = CheckMenuItem::with_id(
-        app,
-        "pin",
-        "Pin overlay (interactive)",
-        true,
-        false,
-        None::<&str>,
-    )?;
+    let pin = MenuItem::with_id(app, "pin", "Unpin keyboard", true, None::<&str>)?;
     if let Ok(path) = crate::oryx::config_path(app) {
         let cfg = crate::config::load(&path);
-        let _ = pin.set_checked(cfg.overlay_pinned);
+        let _ = pin.set_text(if cfg.overlay_pinned {
+            "Pin keyboard"
+        } else {
+            "Unpin keyboard"
+        });
     }
-    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let legend = MenuItem::with_id(app, "legend", "Icon legend & layers…", true, None::<&str>)?;
+    let about = MenuItem::with_id(app, "about", "About", true, None::<&str>)?;
+    let legend = MenuItem::with_id(
+        app,
+        "legend",
+        "Show icons && layers legend",
+        true,
+        None::<&str>,
+    )?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let end_separator = PredefinedMenuItem::separator(app)?;
+    #[cfg(debug_assertions)]
+    let dev_separator = PredefinedMenuItem::separator(app)?;
     #[cfg(debug_assertions)]
     let devtools = MenuItem::with_id(app, "devtools", "Open DevTools", true, None::<&str>)?;
+    #[cfg(debug_assertions)]
+    let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    // The overlay's own right/ctrl-click context menu is disabled (see
-    // hud.js) since a click during grab mode can hold ctrl; DevTools access
-    // moves here instead, and only exists at all in debug builds.
+    #[cfg(debug_assertions)]
+    let developer = Submenu::with_items(
+        app,
+        "Developer",
+        true,
+        &[&devtools, &force_connection, &refresh],
+    )?;
     let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> =
-        vec![&refresh, &toggle, &pin, &settings, &legend];
+        vec![&settings, &separator, &pin, &toggle, &legend];
     #[cfg(debug_assertions)]
-    items.push(&force_connection);
+    items.push(&dev_separator);
     #[cfg(debug_assertions)]
-    items.push(&devtools);
+    items.push(&developer);
+    items.push(&about);
+    items.push(&end_separator);
     items.push(&quit);
     let menu = Menu::with_items(app, &items)?;
     let pin_handle = pin.clone();
+    let toggle_handle = toggle.clone();
     app.listen("config-changed", move |event| {
         if let Ok(cfg) = serde_json::from_str::<crate::config::Config>(event.payload()) {
-            let _ = pin.set_checked(cfg.overlay_pinned);
+            let _ = pin.set_text(if cfg.overlay_pinned {
+                "Pin keyboard"
+            } else {
+                "Unpin keyboard"
+            });
+        }
+    });
+    let toggle_listener = toggle_handle.clone();
+    app.listen("overlay-visibility", move |event| {
+        if let Ok(payload) = serde_json::from_str::<serde_json::Value>(event.payload()) {
+            let hidden = payload
+                .get("hidden")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let _ = toggle_listener.set_text(if hidden {
+                "Show keyboard"
+            } else {
+                "Hide keyboard"
+            });
         }
     });
 
@@ -94,9 +128,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     std::sync::atomic::Ordering::SeqCst,
                 );
                 let _ = force_connection.set_text(if forced_online {
-                    "Force disconnected layout"
+                    "Force disconnected state"
                 } else {
-                    "Force connected layout"
+                    "Force connected state"
                 });
                 let event = if forced_online {
                     "keyboard-online"
@@ -128,7 +162,11 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // truth; set_checked() below only syncs the checkmark to it.
                 let state = app.state::<crate::state::HudState>();
                 let pinned = !state.pinned.load(std::sync::atomic::Ordering::SeqCst);
-                let _ = pin_handle.set_checked(pinned);
+                let _ = pin_handle.set_text(if pinned {
+                    "Pin keyboard"
+                } else {
+                    "Unpin keyboard"
+                });
                 // Only update the shared flag here. Applying the window flag
                 // and emitting grab-mode is left entirely to grab::spawn's
                 // poll loop, which recomputes `grabbed || pinned` every tick
@@ -142,7 +180,11 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         let _ = tauri::Emitter::emit(app, "config-changed", cfg);
                     }
                     Err(error) => {
-                        let _ = pin_handle.set_checked(!pinned);
+                        let _ = pin_handle.set_text(if pinned {
+                            "Unpin keyboard"
+                        } else {
+                            "Pin keyboard"
+                        });
                         eprintln!("layer-hud: could not save pin mode: {error}");
                     }
                 }
@@ -157,12 +199,32 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     "legend",
                     tauri::WebviewUrl::App("legend.html".into()),
                 )
-                .title("KeyAura — Icon legend & layers")
+                .title("KeyAura — Icons & Layers legend")
                 .inner_size(620.0, 640.0)
                 .min_inner_size(420.0, 320.0)
+                .always_on_top(true)
                 .build()
                 {
                     eprintln!("Failed to open icon legend: {e}");
+                }
+            }
+            "about" => {
+                if let Some(w) = app.get_webview_window("about") {
+                    let _ = w.unminimize();
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                } else if let Err(e) = tauri::WebviewWindowBuilder::new(
+                    app,
+                    "about",
+                    tauri::WebviewUrl::App("about.html".into()),
+                )
+                .title("About KeyAura")
+                .inner_size(460.0, 620.0)
+                .min_inner_size(420.0, 520.0)
+                .always_on_top(true)
+                .build()
+                {
+                    eprintln!("Failed to open About window: {e}");
                 }
             }
             "settings" => {
@@ -179,7 +241,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         "settings",
                         tauri::WebviewUrl::App("settings.html".into()),
                     )
-                    .title("KeyAura Settings — About")
+                    .title("KeyAura Settings — General")
                     .inner_size(640.0, 720.0)
                     .min_inner_size(520.0, 520.0)
                     .always_on_top(true)
@@ -188,6 +250,15 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             }
             #[cfg(debug_assertions)]
             "devtools" => {
+                let state = app.state::<crate::state::HudState>();
+                state
+                    .pinned
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                let _ = pin_handle.set_text("Pin keyboard");
+                let _ = crate::oryx::update_config(app, |cfg| cfg.overlay_pinned = true);
+                if let Some(window) = app.get_webview_window("overlay") {
+                    let _ = window.set_ignore_cursor_events(false);
+                }
                 // Open both — the bug being chased is often a mismatch
                 // between what Settings sends and what the overlay applies,
                 // so one console alone tells half the story.

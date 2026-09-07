@@ -5,7 +5,12 @@ let cfg = await invoke('get_config');
 const appVersion = await invoke('get_app_version');
 await emit('macro-recording', false);
 const $ = (id) => document.getElementById(id);
-$('app-version').textContent = `v${appVersion}`;
+const restoredStatus = sessionStorage.getItem('keyaura-settings-status');
+if (restoredStatus) {
+  sessionStorage.removeItem('keyaura-settings-status');
+  const status = $('settings-data-status');
+  if (status) status.textContent = restoredStatus;
+}
 
 async function resetAllSettings() {
   const status = $('settings-data-status');
@@ -13,14 +18,13 @@ async function resetAllSettings() {
   try {
     cfg = await invoke('reset_config');
     if (status) status.textContent = 'Settings reset to defaults.';
-    setTimeout(() => window.location.reload(), 250);
+    setTimeout(() => window.location.reload(), 1000);
   } catch (err) {
     if (status) status.textContent = `Reset failed: ${err}`;
   }
 }
 
 const tabSections = new Map([
-  ['about', 'About'],
   ['layout', 'General'], ['appearance', 'Appearance'], ['fonts', 'Fonts'],
   ['interaction', 'Interaction'], ['position', 'Position'],
 ]);
@@ -82,7 +86,17 @@ for (const [tab, title] of tabSections) {
       const control = label ? $(label.htmlFor) : row.querySelector('[id]');
       if (!control || seen.has(control.id) || control.id.endsWith('-val')) continue;
       const fallback = row.querySelector(':scope > span:first-child');
-      const text = (label?.textContent || row.querySelector('strong')?.textContent || fallback?.textContent || '').trim();
+      // The range labels gain a tooltip button later in this file. Build the
+      // sidebar title from a copy without that control so its visible `i`
+      // glyph never becomes part of entries such as “Shift icon size”.
+      const labelText = label
+        ? (() => {
+          const copy = label.cloneNode(true);
+          copy.querySelectorAll('.setting-info').forEach((node) => node.remove());
+          return copy.textContent;
+        })()
+        : '';
+      const text = (labelText || row.querySelector('strong')?.textContent || fallback?.textContent || '').trim();
       if (fallback?.classList.contains('hint')) continue;
       if (!text) continue;
       seen.add(control.id);
@@ -142,7 +156,46 @@ function selectTab(tab) {
 document.querySelectorAll('.tab-button').forEach((button) => {
   button.addEventListener('click', () => selectTab(button.dataset.tab));
 });
-selectTab('about');
+selectTab('layout');
+
+function versionTuple(value) {
+  return String(value).replace(/^v/, '').split('.').map(Number);
+}
+function isNewerVersion(remote, current) {
+  const a = versionTuple(remote); const b = versionTuple(current);
+  return a.some((part, index) => part > (b[index] || 0)) && !a.some((part, index) => part < (b[index] || 0));
+}
+async function refreshKeyboardOverview() {
+  const details = await invoke('get_keyboard_details');
+  $('keyboard-model').textContent = `${details.model || 'Unknown'} by ${details.manufacturer || 'Unknown'}`;
+  $('layout-name').textContent = details.layout_name || details.revision_name || 'Not detected';
+  $('layout-identity').textContent = details.layout && details.revision ? `${details.layout}/${details.revision}` : 'Not detected';
+  const connected = !!details.online;
+  $('connection-status').textContent = connected ? 'Connected' : 'Disconnected';
+  const button = $('connection-toggle');
+  button.textContent = connected ? 'Disconnect' : 'Connect';
+  button.classList.toggle('connected', connected);
+  button.classList.toggle('disconnected', !connected);
+}
+$('app-version').textContent = `Version ${appVersion}`;
+await refreshKeyboardOverview().catch(() => {});
+for (const event of ['keyboard-online', 'keyboard-offline']) listen(event, () => refreshKeyboardOverview().catch(() => {}));
+$('connection-toggle').addEventListener('click', async () => {
+  const details = await invoke('get_keyboard_details');
+  await invoke('set_keyboard_connection', { connected: !details.online });
+  await refreshKeyboardOverview();
+});
+fetch('https://api.github.com/repos/jonathanlaf/layer-hud/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  .then((response) => response.ok ? response.json() : null)
+  .then((release) => {
+    if (release?.tag_name && isNewerVersion(release.tag_name, appVersion)) {
+      $('update-status').textContent = `Update available: ${release.tag_name}`;
+      $('update-status').classList.add('available');
+    } else if (release?.tag_name) {
+      $('update-status').textContent = 'Up to date';
+      $('update-status').classList.add('current');
+    }
+  }).catch(() => {});
 
 for (const prefix of ['key', 'legend', 'layer_name']) {
   const family = $(`${prefix.replace('_', '-')}-font-family`);
@@ -175,6 +228,7 @@ $('heatmap-color').value = cfg.heatmap_color;
 $('base-outline-color').value = cfg.base_outline_color;
 $('grab-outline-color').value = cfg.grab_outline_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
+$('start-hidden').checked = cfg.start_hidden;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
 $('layer-indicator').value = cfg.layer_indicator ?? 'icon';
 $('shift-icons').checked = cfg.show_shift_icons;
@@ -347,6 +401,7 @@ $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
   await push();
 });
+$('start-hidden').addEventListener('change', (e) => commit('start_hidden', e.target.checked));
 
 $('layer-action-icons').addEventListener('change', (e) => {
   commit('show_layer_action_icons', e.target.checked);
@@ -529,10 +584,20 @@ $('import-settings').addEventListener('click', async () => {
 });
 $('import-file').addEventListener('change', async (e) => {
   const file = e.target.files?.[0]; if (!file) return;
-  try { await pushChain; await invoke('import_config', { contents: await file.text() }); window.location.reload(); }
+  try {
+    await pushChain;
+    await invoke('import_config', { contents: await file.text() });
+    sessionStorage.setItem('keyaura-settings-status', `Imported ${file.name}`);
+    window.location.reload();
+  }
   catch (err) { $('settings-data-status').textContent = String(err); }
 });
 $('reset-settings').addEventListener('click', async () => {
+  $('reset-dialog').hidden = false;
+});
+$('reset-cancel').addEventListener('click', () => { $('reset-dialog').hidden = true; });
+$('reset-confirm').addEventListener('click', async () => {
+  $('reset-dialog').hidden = true;
   await pushChain;
   await resetAllSettings();
 });

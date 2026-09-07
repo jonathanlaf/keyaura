@@ -171,6 +171,18 @@ pub fn get_app_version() -> &'static str {
 }
 
 #[tauri::command]
+pub fn open_external_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("Only HTTPS links can be opened".into());
+    }
+    std::process::Command::new("open")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn set_settings_title(app: AppHandle, title: String) -> Result<(), String> {
     let window = app
         .get_webview_window("settings")
@@ -548,6 +560,60 @@ pub fn get_keyboard_status(app: AppHandle) -> serde_json::Value {
     serde_json::json!({
         "online": online,
         "layer": state.active_layer.load(std::sync::atomic::Ordering::SeqCst),
+    })
+}
+
+#[tauri::command]
+pub fn set_keyboard_connection(app: AppHandle, connected: bool) -> Result<(), String> {
+    let state = app.state::<crate::state::HudState>();
+    state
+        .hid_enabled
+        .store(connected, std::sync::atomic::Ordering::SeqCst);
+    if !connected {
+        state
+            .keyboard_online
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        let _ = app.emit("keyboard-offline", serde_json::json!({ "manual": true }));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
+    let state = app.state::<crate::state::HudState>();
+    let status = get_keyboard_status(app.clone());
+    let identity = state
+        .layout_identity
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone();
+    let mut layout_name = serde_json::Value::Null;
+    let mut revision_name = serde_json::Value::Null;
+    if let Ok(path) = config_path(&app) {
+        if let Some(path) = path.parent().map(|p| p.join("layout.json")) {
+            if let Some(value) = std::fs::read_to_string(path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            {
+                layout_name = value
+                    .pointer("/data/layout/title")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
+                revision_name = value
+                    .pointer("/data/layout/revision/title")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
+            }
+        }
+    }
+    serde_json::json!({
+        "manufacturer": "ZSA",
+        "model": "Voyager",
+        "online": status.get("online").and_then(|v| v.as_bool()).unwrap_or(false),
+        "layout": identity.as_ref().map(|i| i.layout.clone()),
+        "revision": identity.as_ref().map(|i| i.revision.clone()),
+        "layout_name": layout_name,
+        "revision_name": revision_name,
     })
 }
 

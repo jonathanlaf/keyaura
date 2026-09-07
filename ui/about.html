@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>About KeyAura</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 24px; text-align: center; font: 13px -apple-system, "SF Pro Text", sans-serif;
+    background: light-dark(#f5f5f7, #1e1e22); color: light-dark(#1d1d1f, #e8e8ed); }
+  img { width: 100px; height: 100px; object-fit: contain; margin-bottom: 10px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p { line-height: 1.45; margin: 9px auto; max-width: 350px; }
+  .hint { font-size: 11px; opacity: .62; }
+  .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px auto 0; max-width: 390px; }
+  button { padding: 6px 12px; border-radius: 7px; background: light-dark(#fff, #3a3a42); color: inherit;
+    border: 1px solid light-dark(#d1d1d6, #555560); font: inherit; cursor: pointer; }
+</style></head>
+<body>
+  <img src="icons/logo.png" alt="KeyAura logo" />
+  <h1>KeyAura</h1>
+  <p id="version">Loading version…</p>
+  <p>A flexible, unofficial Keymapp-style overlay for ZSA keyboards. KeyAura reads the keyboard directly and keeps the visual interface lightweight, configurable, and out of your way.</p>
+  <p class="hint">KeyAura listens to the keyboard’s QMK/Oryx Raw HID event stream: layer changes and physical key presses are read directly from the connected keyboard, rather than inferred from application text.</p>
+  <p class="hint">Created as a vibe-coded experiment with Claude and Codex.<br />Co-author / prompter: Jonathan Lafleur<br />me@jonathanlafleur.ca</p>
+  <div class="links">
+    <button id="keymapp-link" type="button">Official Keymapp</button>
+    <button id="oryx-link" type="button">Edit keyboard configuration</button>
+    <button id="training-link" type="button">Train (typ.ing)</button>
+    <button id="qmk-link" type="button">QMK</button>
+    <button id="source-link" type="button">Source code</button>
+  </div>
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+    document.querySelector('#version').textContent = `Version ${await invoke('get_app_version')}`;
+    document.querySelector('#keymapp-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://www.zsa.io/keymapp' }));
+    document.querySelector('#source-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://github.com/jonathanlaf/layer-hud' }));
+    document.querySelector('#oryx-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://configure.zsa.io/' }));
+    document.querySelector('#training-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://typ.ing/' }));
+    document.querySelector('#qmk-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://qmk.fm/' }));
+  </script>
+</body>
+</html>

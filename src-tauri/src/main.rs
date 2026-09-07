@@ -38,11 +38,13 @@ fn main() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let overlay = app.get_webview_window("overlay").expect("overlay window");
             overlay.set_ignore_cursor_events(true)?;
+            let mut start_hidden = false;
 
             // Restore this monitor's saved position/size, or — first time the
             // overlay has ever appeared on it — start at 30% of it, centered.
             if let Ok(path) = oryx::config_path(app.handle()) {
                 let cfg = config::load(&path);
+                start_hidden = cfg.start_hidden;
                 app.state::<state::HudState>()
                     .pinned
                     .store(cfg.overlay_pinned, std::sync::atomic::Ordering::SeqCst);
@@ -87,6 +89,14 @@ fn main() {
             hid::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
             tray::build(app.handle())?;
+            if start_hidden {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = oryx::toggle_overlay_visibility(app_handle).await {
+                        eprintln!("layer-hud: could not apply start-hidden setting: {error}");
+                    }
+                });
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -157,6 +167,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             oryx::get_app_version,
+            oryx::open_external_url,
             layout::refresh_layout,
             layout::load_layout,
             oryx::get_config,
@@ -168,6 +179,8 @@ fn main() {
             oryx::is_overlay_pinned,
             oryx::toggle_overlay_visibility,
             oryx::get_keyboard_status,
+            oryx::set_keyboard_connection,
+            oryx::get_keyboard_details,
             oryx::export_config,
             oryx::import_config,
             oryx::reset_config,
