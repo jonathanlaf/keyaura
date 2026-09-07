@@ -24,6 +24,9 @@ jobs:
       - name: Rust lint
         working-directory: src-tauri
         run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Rust release lint
+        working-directory: src-tauri
+        run: cargo clippy --locked --release --all-targets -- -D warnings
       - name: cargo test
         working-directory: src-tauri
         run: cargo test --locked

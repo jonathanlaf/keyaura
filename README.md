@@ -29,13 +29,14 @@ This is a macOS-only app. Older macOS/WebKit versions and other ZSA keyboards ha
 
 ## Usage
 
-- **Menu bar:** Refresh layout, open the icon/layer legend or Settings, pin the overlay for interaction, or quit. Debug builds also offer DevTools.
-- **Move and resize:** Hold the grab shortcut (⌘⌥ by default) or enable Pin overlay. Drag the board or its corner handles. The app constrains proportions and saves position and size per monitor.
+- **Menu bar:** Open Settings, unpin/pin the keyboard, hide/show it, open the icons and layers legend or About, or quit. The Developer submenu exists only in debug builds and offers DevTools, a forced connection display state, and Refresh.
+- **Move and resize:** Hold the grab shortcut (⌘⌥ by default) or choose **Unpin keyboard**. Drag the board or its corner handles. **Pin keyboard** restores click-through behavior. The app constrains proportions and saves position and size per monitor.
 - **Appearance:** Configure fills, borders, opacity, shadows, pressed-key feedback, icon visibility and sizes, heatmap coloring/counts, and key spacing. Fonts have their own tab; enter an installed font family or leave it blank for the system font. The global ligature checkbox controls font shaping; italic letterforms depend on the selected font.
-- **Position:** Center horizontally, vertically, or both; reset saved positions; change the gap between halves; choose the hidden edge, visible amount, and animation duration.
+- **Position:** Center horizontally or vertically, align to the top or bottom, change the gap and rotation of the halves, and position the layer/offline pills. Reset layout restores default position, size, spacing, and rotation. Choose the hidden edge, visible amount, and animation duration here too.
 - **Toggle shortcut:** Record physical presses, then Stop. Repeated taps work, as do different keys pressed in order. Matching uses a maximum one-second gap between presses. It is an ordered sequence, not a system-wide chord/hold recognizer, and only receives keys from the connected Voyager. Record then Stop without pressing a key to clear it.
 - **Hide/show:** The same sequence hides and restores the overlay. The real key layers are translated and clipped at the selected monitor edge to avoid showing the hidden portion on a neighboring display. Zero visible amount hides it completely; nonzero amounts retain at least approximately one key-width of visibility. Alignment, position reset, and geometry changes restore a hidden overlay before repositioning it.
-- **Legend:** A separate window lists icon meanings and textual routes to each layer, including configured tap, hold, double-tap, and tap-and-hold actions. These are configured actions, not a live interpretation of firmware gesture timing.
+- **Legend:** A separate window lists icon meanings and named layers, with action icons, keycap symbols, and instructions for each configured tap, hold, double-tap, and tap-and-hold route. These are configured actions, not a live interpretation of firmware gesture timing.
+- **About:** Shows the app version, credits, transparent logo, and links to Keymapp, the detected Oryx layout, typ.ing, QMK, and the source code.
 
 Character translation currently includes macOS Canadian-CSA mappings plus standard keycode labels. It does not detect or reproduce every operating-system input source.
 
@@ -49,7 +50,9 @@ Heatmap totals are stored locally in the overlay's WebKit storage and survive no
 
 ## Settings and backups
 
-General contains Start at login, JSON import/export, and Reset. Export writes into your macOS Downloads directory and displays the **actual saved path**. Repeated exports get numbered filenames and never overwrite earlier exports.
+Settings uses a searchable sidebar: selecting an option opens its section and highlights the corresponding row. General opens first with the keyboard/layout overview, app version and available-update notice. Its Connect/Disconnect button releases or reconnects the HID interface so other keyboard apps can use it.
+
+General also contains Startup options (Start at login and Start hidden), JSON import/export, and Reset with confirmation. Export writes into your macOS Downloads directory and displays the **actual saved path**. Repeated exports get numbered filenames and never overwrite earlier exports. Import reports success after the Settings page refreshes.
 
 Import replaces the app's preferences, including saved monitor positions (restored on the next launch); out-of-range numbers and invalid colors are sanitized. Missing fields in older backups receive defaults. Reset restores default app preferences and recenters the overlay.
 
@@ -66,7 +69,7 @@ Settings/cache from the old `io.jonathanlaf.voyagerhud` identifier are migrated 
 
 ## Troubleshooting
 
-- **No layout:** Connect the Voyager, close competing HID apps, and choose Refresh layout. If there has never been a successful fetch for this revision, Oryx must be reachable first.
+- **No layout:** Connect the Voyager and close competing HID apps. Reconnect through General's Connect/Disconnect button to retry retrieval; debug builds also have Developer → Refresh. If there has never been a successful fetch for this revision, Oryx must be reachable first.
 - **OFFLINE:** Check the USB connection and firmware, and close Keymapp or browser training sessions. Detection retries automatically.
 - **Wrong-looking characters:** Check your OS input source. The translator's Canadian-CSA mappings are not a universal mapping for all language layouts.
 - **Hidden overlay:** Trigger the recorded sequence again, or use a positioning control in Settings to bring it back.
@@ -96,7 +99,9 @@ Bundles are written beneath `src-tauri/target/release/bundle/macos/` and `src-ta
 
 ## Releases and provenance
 
-Merging a PR into `main` runs CI; **it does not create a release by itself**. Update both `Cargo.toml` and `tauri.conf.json`, commit the updated lockfile, then push a matching `vX.Y.Z` tag after that commit reaches `main`.
+Prepare a `release/vX.Y.Z` branch with matching versions in `Cargo.toml`, `Cargo.lock`, and `tauri.conf.json`. Open its PR into `main` and wait for CI to pass. Merging that release PR creates the matching tag on the merge commit, then calls the release workflow directly. Ordinary feature PRs do not create releases.
+
+The direct workflow call is necessary because tags pushed by GitHub's built-in token do not trigger another workflow. Manually pushed matching version tags still run the same release workflow. Retrying the release-branch workflow reuses an existing tag only if it points to the same merge commit; a conflicting tag is rejected without being moved.
 
 The release workflow checks tag ancestry and version consistency, builds the app, creates a **draft release with generated notes**, and attests the DMG. A tag that is not reachable from `main` is rejected and deleted by the workflow. Drafts require manual review/publication; the version badge shows the latest published release.
 

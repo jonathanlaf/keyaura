@@ -8,6 +8,16 @@ on:
       # it in the version-check step below; keeping the pattern this strict
       # means such a tag is simply never picked up by this workflow at all.
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing release tag to build
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,18 +28,39 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.commit.outputs.sha }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Tag must be reachable from main
+      - name: Validate release tag
+        id: version
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          git fetch origin main
-          if ! git merge-base --is-ancestor "${{ github.sha }}" origin/main; then
-            echo "::error::Tag ${{ github.ref_name }} is not on main — deleting it and refusing to release."
-            git push origin --delete "${{ github.ref_name }}"
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must match vX.Y.Z."
             exit 1
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ steps.version.outputs.tag }}
+          fetch-depth: 0
+      - name: Tag must be reachable from main
+        id: commit
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          COMMIT=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$COMMIT" origin/main; then
+            echo "::error::Tag $TAG is not on main — deleting it and refusing to release."
+            git push origin --delete "$TAG"
+            exit 1
+          fi
+          echo "sha=$COMMIT" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build and release
@@ -41,13 +72,17 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.commit }}
 
       - name: Verify tag matches tauri.conf.json version
+        env:
+          TAG: ${{ needs.guard.outputs.tag }}
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${TAG#v}"
           CONF_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
           if [ "$TAG_VERSION" != "$CONF_VERSION" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match tauri.conf.json version $CONF_VERSION"
+            echo "::error::Tag $TAG does not match tauri.conf.json version $CONF_VERSION"
             exit 1
           fi
 
@@ -70,8 +105,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'KeyAura ${{ github.ref_name }}'
+          tagName: ${{ needs.guard.outputs.tag }}
+          releaseName: 'KeyAura ${{ needs.guard.outputs.tag }}'
           generateReleaseNotes: true
           releaseDraft: true
           prerelease: false

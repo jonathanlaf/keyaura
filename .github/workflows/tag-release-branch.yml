@@ -16,6 +16,8 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       startsWith(github.event.pull_request.head.ref, 'release/v')
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,10 +50,28 @@ jobs:
         run: |
           set -euo pipefail
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists; leaving it unchanged."
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+            if [[ "$(git rev-parse "$TAG^{commit}")" != "$MERGE_SHA" ]]; then
+              echo "::error::Tag $TAG already points to a different commit."
+              exit 1
+            fi
+            echo "Tag $TAG already points to this merge; continuing the release."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" "$MERGE_SHA" -m "release: $TAG"
           git push origin "$TAG"
+
+  release:
+    name: Release tagged merge
+    needs: tag
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    # GITHUB_TOKEN tag pushes do not trigger other workflows. Call the same
+    # release workflow directly so no additional token or secret is needed.
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
