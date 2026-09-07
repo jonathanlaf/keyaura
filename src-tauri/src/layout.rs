@@ -79,8 +79,8 @@ fn identity(app: &AppHandle) -> Result<LayoutIdentity, String> {
     {
         return Err("Connected keyboard has not reported an Oryx layout/revision identity".into());
     }
-    let cfg = crate::config::load(&crate::oryx::config_path(app)?);
-    let hash = crate::oryx::parse_layout_hash(&cfg.oryx_url).unwrap_or_default();
+    let cfg = crate::config::load(&crate::app::config_path(app)?);
+    let hash = crate::app::parse_layout_hash(&cfg.oryx_url).unwrap_or_default();
     LayoutIdentity::new(&hash, &cfg.oryx_revision)
         .ok_or("No keyboard layout detected; connect your Voyager".into())
 }
@@ -110,8 +110,8 @@ fn cached_layout(
 }
 
 fn read_cache(app: &AppHandle, expected: Option<&LayoutIdentity>) -> Result<Value, String> {
-    let cfg = crate::config::load(&crate::oryx::config_path(app)?);
-    let hash = crate::oryx::parse_layout_hash(&cfg.oryx_url).unwrap_or_default();
+    let cfg = crate::config::load(&crate::app::config_path(app)?);
+    let hash = crate::app::parse_layout_hash(&cfg.oryx_url).unwrap_or_default();
     let legacy = LayoutIdentity::new(&hash, &cfg.oryx_revision);
     let path = app
         .path()
@@ -162,7 +162,7 @@ pub async fn refresh_layout(app: AppHandle) -> Result<Value, String> {
             .map_err(|e| e.to_string())?
             .join("layout.json");
         crate::config::save_json(&path, &value).map_err(|e| e.to_string())?;
-        crate::oryx::update_config(&app, |cfg| {
+        crate::app::update_config(&app, |cfg| {
             cfg.oryx_url = requested.layout;
             cfg.oryx_revision = requested.revision;
         })?;

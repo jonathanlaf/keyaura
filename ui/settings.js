@@ -180,7 +180,7 @@ $('connection-toggle').addEventListener('click', async () => {
   await invoke('set_keyboard_connection', { connected: !details.online });
   await refreshKeyboardOverview();
 });
-fetch('https://api.github.com/repos/jonathanlaf/layer-hud/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+fetch('https://api.github.com/repos/jonathanlaf/keyaura/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
   .then((response) => response.ok ? response.json() : null)
   .then((release) => {
     if (release?.tag_name && isNewerVersion(release.tag_name, appVersion)) {
@@ -546,7 +546,7 @@ async function alignWindow(axis) {
   try {
     await invoke('align_window', { axis });
   } catch (err) {
-    console.warn('layer-hud: could not align window:', err);
+    console.warn('KeyAura: could not align window:', err);
   }
 }
 $('center-horizontal').addEventListener('click', () => alignWindow('horizontal'));
@@ -561,7 +561,7 @@ $('reset-position').addEventListener('click', async () => {
     if (status) status.textContent = 'Layout position, size, and keyboard spacing reset.';
   } catch (err) {
     if (status) status.textContent = `Position reset failed: ${err}`;
-    console.warn('layer-hud: could not reset window positions:', err);
+    console.warn('KeyAura: could not reset window positions:', err);
   }
 });
 

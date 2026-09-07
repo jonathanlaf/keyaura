@@ -100,6 +100,45 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
 
+      - name: Build release notes from merged feature pull requests
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # Feature work is merged into release/vX.Y.Z before that branch is
+          # merged into main. GitHub's generated release notes only see the
+          # final release PR, so collect the feature PR descriptions directly.
+          RELEASE_BRANCH="release/$TAG"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          PRS_FILE="$RUNNER_TEMP/release-prs.json"
+
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/pulls?state=closed&base=$RELEASE_BRANCH&sort=updated&direction=asc&per_page=100" \
+            > "$PRS_FILE"
+
+          jq -r '
+            [ .[] | .[] | select(.merged_at != null) ]
+            | sort_by(.merged_at)
+            | if length == 0 then
+                "No feature pull requests were merged into this release branch."
+              else
+                .[]
+                | "## [#\(.number) — \(.title)](\(.html_url))\n\n"
+                  + (if (.body | length) > 0 then .body else "_No description was provided._" end)
+                  + "\n"
+              end
+          ' "$PRS_FILE" > "$NOTES_FILE"
+
+          DELIMITER="KEYAURA_RELEASE_NOTES_$(uuidgen)"
+          {
+            echo "body<<$DELIMITER"
+            cat "$NOTES_FILE"
+            echo "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:
@@ -107,7 +146,10 @@ jobs:
         with:
           tagName: ${{ needs.guard.outputs.tag }}
           releaseName: 'KeyAura ${{ needs.guard.outputs.tag }}'
-          generateReleaseNotes: true
+          releaseBody: ${{ steps.release_notes.outputs.body }}
+          # The body above intentionally contains PR descriptions. GitHub's
+          # generator would add only the final release-branch PR and commits.
+          generateReleaseNotes: false
           releaseDraft: true
           prerelease: false
 

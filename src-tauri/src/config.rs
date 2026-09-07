@@ -295,9 +295,9 @@ pub fn export_to_dir(dir: &Path, cfg: &Config) -> std::io::Result<std::path::Pat
     let contents = serde_json::to_vec_pretty(cfg)?;
     for suffix in 0.. {
         let name = if suffix == 0 {
-            "layer-hud-settings.json".into()
+            "keyaura-settings.json".into()
         } else {
-            format!("layer-hud-settings ({suffix}).json")
+            format!("keyaura-settings ({suffix}).json")
         };
         let path = dir.join(name);
         match std::fs::OpenOptions::new()
@@ -522,8 +522,8 @@ mod tests {
             ..Config::default()
         };
         let second = export_to_dir(dir.path(), &changed).unwrap();
-        assert_eq!(first.file_name().unwrap(), "layer-hud-settings.json");
-        assert_eq!(second.file_name().unwrap(), "layer-hud-settings (1).json");
+        assert_eq!(first.file_name().unwrap(), "keyaura-settings.json");
+        assert_eq!(second.file_name().unwrap(), "keyaura-settings (1).json");
         assert_eq!(load(&first), Config::default());
         assert_eq!(load(&second), changed);
         assert!(export_to_dir(&dir.path().join("missing"), &changed).is_err());

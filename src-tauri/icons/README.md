@@ -9,7 +9,7 @@ native contrast.
 Regenerate from the repository root:
 
 ```sh
-icon_build_dir=$(mktemp -d /private/tmp/layer-hud-icons.XXXXXX)
+icon_build_dir=$(mktemp -d /private/tmp/keyaura-icons.XXXXXX)
 cargo tauri icon src-tauri/icons/voyager.svg --output "$icon_build_dir/tray" --png 64
 cp "$icon_build_dir/tray/64x64.png" src-tauri/icons/tray.png
 cargo tauri icon src-tauri/icons/voyager-app.svg --output "$icon_build_dir/app" --png 512

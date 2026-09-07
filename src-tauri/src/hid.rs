@@ -1,7 +1,8 @@
-//! Direct ZSA Oryx WebHID watcher.
+//! Keyboard event transport for the currently supported QMK adapter.
 //!
-//! The keyboard exposes its live key stream on its Oryx Raw
-//! HID collection, so this watcher talks to the Voyager directly.
+//! The Voyager adapter reads its live key stream from the Oryx Raw HID
+//! collection. Other keyboards can add adapters without changing the app's
+//! generic event, layer, and overlay state.
 
 use hidapi::{HidApi, HidDevice};
 use serde_json::json;
@@ -114,7 +115,7 @@ fn emit_layout_identity(app: &AppHandle, device: &HidDevice) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(error) = crate::layout::refresh_layout(app.clone()).await {
-            eprintln!("layer-hud: {error}");
+            eprintln!("KeyAura: {error}");
             let _ = app.emit("layout-error", error);
         }
     });
@@ -188,7 +189,7 @@ fn record_toggle_macro(app: &AppHandle, index: u8) {
     {
         return;
     }
-    let Ok(path) = crate::oryx::config_path(app) else {
+    let Ok(path) = crate::app::config_path(app) else {
         return;
     };
     let cfg = crate::config::load(&path);
@@ -228,8 +229,8 @@ fn record_toggle_macro(app: &AppHandle, index: u8) {
         drop(last_event);
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(error) = crate::oryx::toggle_overlay_visibility(app.clone()).await {
-                eprintln!("layer-hud: HID macro toggle failed: {error}");
+            if let Err(error) = crate::app::toggle_overlay_visibility(app.clone()).await {
+                eprintln!("KeyAura: HID macro toggle failed: {error}");
                 let _ = app.emit("overlay-toggle-error", error);
             }
         });
@@ -238,7 +239,7 @@ fn record_toggle_macro(app: &AppHandle, index: u8) {
 
 pub fn spawn(app: AppHandle) {
     thread::Builder::new()
-        .name("oryx-hid-watcher".into())
+        .name("keyboard-event-watcher".into())
         .spawn(move || {
             let mut online = false;
             loop {
@@ -293,7 +294,7 @@ pub fn spawn(app: AppHandle) {
                 thread::sleep(Duration::from_millis(250));
             }
         })
-        .expect("failed to start Oryx HID watcher");
+        .expect("failed to start keyboard event watcher");
 }
 
 #[cfg(test)]
