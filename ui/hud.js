@@ -393,7 +393,7 @@ async function main() {
   await listen('grab-mode', (e) => setGrabCue(!!e.payload.on));
   await listen('overlay-visibility', (e) => applyOverlayVisibility(e.payload));
   await listen('overlay-toggle-error', e => {
-    console.warn('layer-hud: overlay toggle failed:', e.payload);
+    console.warn('KeyAura: overlay toggle failed:', e.payload);
     const board = document.getElementById('board');
     if (board && !document.body.classList.contains('overlay-hidden')) {
       board.dataset.toggleError = String(e.payload || 'toggle failed');
@@ -488,11 +488,11 @@ async function main() {
       setActiveLayer(lastLayer);
     }
   } catch (err) {
-    console.error('layer-hud: startup layout failed:', err);
+    console.error('KeyAura: startup layout failed:', err);
     if (!lastLayout) showStartupError(err);
   }
 }
 main().catch((err) => {
-  console.error('layer-hud startup failed:', err);
+  console.error('KeyAura startup failed:', err);
   showStartupError(err);
 });

@@ -16,7 +16,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let pin = MenuItem::with_id(app, "pin", "Unpin keyboard", true, None::<&str>)?;
-    if let Ok(path) = crate::oryx::config_path(app) {
+    if let Ok(path) = crate::app::config_path(app) {
         let cfg = crate::config::load(&path);
         let _ = pin.set_text(if cfg.overlay_pinned {
             "Pin keyboard"
@@ -96,7 +96,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = crate::layout::refresh_layout(app.clone()).await {
-                        eprintln!("layer-hud: {error}");
+                        eprintln!("KeyAura: {error}");
                         let _ = tauri::Emitter::emit(&app, "layout-error", error);
                     }
                 });
@@ -104,8 +104,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             "toggle" => {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = crate::oryx::toggle_overlay_visibility(app.clone()).await {
-                        eprintln!("layer-hud: overlay toggle failed: {error}");
+                    if let Err(error) = crate::app::toggle_overlay_visibility(app.clone()).await {
+                        eprintln!("KeyAura: overlay toggle failed: {error}");
                         let _ = tauri::Emitter::emit(&app, "overlay-toggle-error", error);
                     }
                 });
@@ -173,7 +173,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // desync (e.g. unchecking pin while the combo is still held
                 // would wrongly force the window non-interactive here, and
                 // the loop's cache would then suppress the correction).
-                match crate::oryx::update_config(app, move |cfg| cfg.overlay_pinned = pinned) {
+                match crate::app::update_config(app, move |cfg| cfg.overlay_pinned = pinned) {
                     Ok(cfg) => {
                         let _ = tauri::Emitter::emit(app, "config-changed", cfg);
                     }
@@ -183,7 +183,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         } else {
                             "Pin keyboard"
                         });
-                        eprintln!("layer-hud: could not save pin mode: {error}");
+                        eprintln!("KeyAura: could not save pin mode: {error}");
                     }
                 }
             }
@@ -253,7 +253,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     .pinned
                     .store(true, std::sync::atomic::Ordering::SeqCst);
                 let _ = pin_handle.set_text("Pin keyboard");
-                let _ = crate::oryx::update_config(app, |cfg| cfg.overlay_pinned = true);
+                let _ = crate::app::update_config(app, |cfg| cfg.overlay_pinned = true);
                 if let Some(window) = app.get_webview_window("overlay") {
                     let _ = window.set_ignore_cursor_events(false);
                 }

@@ -88,7 +88,7 @@ async function reload() {
   } catch (error) {
     if (version !== loadVersion) return;
     $('layers').replaceChildren();
-    $('status').textContent = `Could not load layers. Connect your Voyager and refresh the layout from the Developer menu. ${error}`;
+    $('status').textContent = `Could not load layers. Connect a supported keyboard and refresh the layout from the Developer menu. ${error}`;
   } finally {
     // Layout refreshes arrive from the tray or HID watcher.
   }

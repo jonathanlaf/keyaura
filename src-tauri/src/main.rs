@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app;
 mod config;
 mod grab;
 mod hid;
 mod layout;
-mod oryx;
 mod state;
 mod tray;
 
@@ -31,8 +31,8 @@ fn main() {
                     .unwrap_or_else(|p| p.into_inner())
                     .clear();
             });
-            if let Err(e) = oryx::migrate_legacy_identifier(app.handle()) {
-                eprintln!("layer-hud: legacy config migration failed: {e}");
+            if let Err(e) = app::migrate_legacy_identifier(app.handle()) {
+                eprintln!("KeyAura: legacy config migration failed: {e}");
             }
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -42,7 +42,7 @@ fn main() {
 
             // Restore this monitor's saved position/size, or — first time the
             // overlay has ever appeared on it — start at 30% of it, centered.
-            if let Ok(path) = oryx::config_path(app.handle()) {
+            if let Ok(path) = app::config_path(app.handle()) {
                 let cfg = config::load(&path);
                 start_hidden = cfg.start_hidden;
                 app.state::<state::HudState>()
@@ -61,7 +61,7 @@ fn main() {
                 let target = cfg
                     .last_monitor
                     .as_ref()
-                    .and_then(|last| monitors.iter().find(|m| &oryx::monitor_key(m) == last))
+                    .and_then(|last| monitors.iter().find(|m| &app::monitor_key(m) == last))
                     .or_else(|| {
                         overlay
                             .current_monitor()
@@ -69,20 +69,20 @@ fn main() {
                             .flatten()
                             .as_ref()
                             .and_then(|cur| {
-                                let key = oryx::monitor_key(cur);
-                                monitors.iter().find(|m| oryx::monitor_key(m) == key)
+                                let key = app::monitor_key(cur);
+                                monitors.iter().find(|m| app::monitor_key(m) == key)
                             })
                     })
                     .or_else(|| monitors.first());
                 if let Some(mon) = target {
-                    let key = oryx::monitor_key(mon);
+                    let key = app::monitor_key(mon);
                     let rect = cfg
                         .window_by_monitor
                         .get(&key)
-                        .filter(|r| oryx::rect_fits_monitor(r, mon))
+                        .filter(|r| app::rect_fits_monitor(r, mon))
                         .cloned()
-                        .unwrap_or_else(|| oryx::default_rect_for_monitor(mon));
-                    oryx::apply_rect(&overlay, &rect);
+                        .unwrap_or_else(|| app::default_rect_for_monitor(mon));
+                    app::apply_rect(&overlay, &rect);
                 }
             }
 
@@ -92,8 +92,8 @@ fn main() {
             if start_hidden {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = oryx::toggle_overlay_visibility(app_handle).await {
-                        eprintln!("layer-hud: could not apply start-hidden setting: {error}");
+                    if let Err(error) = app::toggle_overlay_visibility(app_handle).await {
+                        eprintln!("KeyAura: could not apply start-hidden setting: {error}");
                     }
                 });
             }
@@ -133,7 +133,7 @@ fn main() {
                     // current center, so dragging any corner grows/shrinks it
                     // without making the overlay drift or distort its padding.
                     if matches!(event, tauri::WindowEvent::Resized(_)) {
-                        let half_distance = oryx::config_path(app)
+                        let half_distance = app::config_path(app)
                             .ok()
                             .map(|path| config::load(&path).keyboard_halves_distance)
                             .unwrap_or(1.6);
@@ -155,36 +155,36 @@ fn main() {
                         w: size.width,
                         h: size.height,
                     };
-                    let key = oryx::monitor_key(&mon);
-                    if let Err(e) = oryx::update_config(app, move |cfg| {
+                    let key = app::monitor_key(&mon);
+                    if let Err(e) = app::update_config(app, move |cfg| {
                         cfg.window_by_monitor.insert(key.clone(), rect);
                         cfg.last_monitor = Some(key);
                     }) {
-                        eprintln!("layer-hud: failed to persist window rect: {e}");
+                        eprintln!("KeyAura: failed to persist window rect: {e}");
                     }
                 }
             }
         })
         .invoke_handler(tauri::generate_handler![
-            oryx::get_app_version,
-            oryx::open_external_url,
+            app::get_app_version,
+            app::open_external_url,
             layout::refresh_layout,
             layout::load_layout,
-            oryx::get_config,
-            oryx::set_settings_title,
-            oryx::set_config,
-            oryx::align_window,
-            oryx::reset_window_positions,
-            oryx::recalculate_window_geometry,
-            oryx::is_overlay_pinned,
-            oryx::toggle_overlay_visibility,
-            oryx::get_keyboard_status,
-            oryx::set_keyboard_connection,
-            oryx::get_keyboard_details,
-            oryx::export_config,
-            oryx::import_config,
-            oryx::reset_config,
+            app::get_config,
+            app::set_settings_title,
+            app::set_config,
+            app::align_window,
+            app::reset_window_positions,
+            app::recalculate_window_geometry,
+            app::is_overlay_pinned,
+            app::toggle_overlay_visibility,
+            app::get_keyboard_status,
+            app::set_keyboard_connection,
+            app::get_keyboard_details,
+            app::export_config,
+            app::import_config,
+            app::reset_config,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running layer-hud");
+        .expect("error while running KeyAura");
 }

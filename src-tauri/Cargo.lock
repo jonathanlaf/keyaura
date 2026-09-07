@@ -1836,7 +1836,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "layer-hud"
+name = "keyaura"
 version = "0.1.0"
 dependencies = [
  "hidapi",

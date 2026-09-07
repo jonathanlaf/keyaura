@@ -11,7 +11,7 @@ use std::time::Instant;
 pub struct HudState {
     pub pinned: AtomicBool,
     pub config_lock: Mutex<()>,
-    /// grab_combo only, kept in sync by oryx::update_config on every write,
+    /// grab_combo only, kept in sync by app::update_config on every write,
     /// so grab.rs's 10Hz poll loop (runs forever regardless of keyboard
     /// connectivity) doesn't need to read and fully deserialize config.json
     /// from disk on every tick just to check a value that rarely changes.

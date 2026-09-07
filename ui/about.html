@@ -18,8 +18,8 @@
   <img src="icons/logo.png" alt="KeyAura logo" />
   <h1>KeyAura</h1>
   <p id="version">Loading version…</p>
-  <p>A flexible, unofficial Keymapp-style overlay for ZSA keyboards. KeyAura reads the keyboard directly and keeps the visual interface lightweight, configurable, and out of your way.</p>
-  <p class="hint">KeyAura listens to the keyboard’s QMK/Oryx Raw HID event stream: layer changes and physical key presses are read directly from the connected keyboard, rather than inferred from application text.</p>
+  <p>A highly configurable overlay for learning programmable keyboards. KeyAura reads supported keyboards directly and keeps the visual interface lightweight, adaptable, and out of your way.</p>
+  <p class="hint">KeyAura listens to supported QMK keyboard event transports: layer changes and physical key presses are read directly from the connected keyboard, rather than inferred from application text. The current Voyager adapter uses Oryx Raw HID.</p>
   <p class="hint">Created as a vibe-coded experiment with Claude and Codex.<br />Co-author / prompter: Jonathan Lafleur<br />me@jonathanlafleur.ca</p>
   <div class="links">
     <button id="keymapp-link" type="button">Official Keymapp</button>
@@ -34,7 +34,7 @@
       document.querySelector('#version').textContent = `Version ${version}`;
     }).catch(() => { document.querySelector('#version').textContent = 'Version unavailable'; });
     document.querySelector('#keymapp-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://www.zsa.io/keymapp' }));
-    document.querySelector('#source-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://github.com/jonathanlaf/layer-hud' }));
+    document.querySelector('#source-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://github.com/jonathanlaf/keyaura' }));
     document.querySelector('#oryx-link').addEventListener('click', async () => {
       const details = await invoke('get_keyboard_details').catch(() => null);
       const url = details?.layout && details?.revision

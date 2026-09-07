@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Heatmap, restoreCounts, heatmapFill, HEATMAP_STORAGE_KEY } from '../heatmap.mjs';
+import { Heatmap, restoreCounts, heatmapFill, HEATMAP_STORAGE_KEY, LEGACY_HEATMAP_STORAGE_KEY } from '../heatmap.mjs';
 
 function fixture(saved = '[]') {
   const values = new Map([[HEATMAP_STORAGE_KEY, saved]]);
@@ -29,6 +29,20 @@ test('continuous typing retains the original save timer and persists across inst
   assert.equal(heatmap.record(52), false);
   assert.equal(heatmap.record(-1), false);
   assert.equal(heatmap.record('1'), false);
+});
+
+test('migrates the Layer HUD heatmap key to KeyAura without losing counts', () => {
+  const values = new Map([[LEGACY_HEATMAP_STORAGE_KEY, JSON.stringify([12])]]);
+  const storage = {
+    getItem: key => values.get(key),
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+  const heatmap = new Heatmap(storage);
+  assert.equal(heatmap.counts[0], 12);
+  heatmap.flush();
+  assert.equal(JSON.parse(values.get(HEATMAP_STORAGE_KEY))[0], 12);
+  assert.equal(values.has(LEGACY_HEATMAP_STORAGE_KEY), false);
 });
 
 test('reset cancels queued saves and survives restart; counts never wrap', () => {

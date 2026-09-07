@@ -1,4 +1,5 @@
-export const HEATMAP_STORAGE_KEY = 'layer-hud-heatmap-v1';
+export const HEATMAP_STORAGE_KEY = 'keyaura-heatmap-v1';
+export const LEGACY_HEATMAP_STORAGE_KEY = 'layer-hud-heatmap-v1';
 const MAX_COUNT = 0xffffffff;
 
 export function restoreCounts(saved, size = 52) {
@@ -24,7 +25,11 @@ export class Heatmap {
     this.onError = onError;
     this.timer = null;
     let saved;
-    try { saved = JSON.parse(storage?.getItem(HEATMAP_STORAGE_KEY) || '[]'); }
+    try {
+      const current = storage?.getItem(HEATMAP_STORAGE_KEY);
+      const legacy = storage?.getItem(LEGACY_HEATMAP_STORAGE_KEY);
+      saved = JSON.parse(current || legacy || '[]');
+    }
     catch (error) { onError('Could not load heatmap history', error); }
     this.counts = restoreCounts(saved);
   }
@@ -40,7 +45,10 @@ export class Heatmap {
   flush() {
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
-    try { this.storage?.setItem(HEATMAP_STORAGE_KEY, JSON.stringify([...this.counts])); }
+    try {
+      this.storage?.setItem(HEATMAP_STORAGE_KEY, JSON.stringify([...this.counts]));
+      this.storage?.removeItem?.(LEGACY_HEATMAP_STORAGE_KEY);
+    }
     catch (error) { this.onError('Could not save heatmap history', error); }
   }
 
