@@ -1,3 +1,5 @@
+import { isNewerVersion } from './release-version.mjs';
+
 const { invoke } = window.__TAURI__.core;
 const { listen, emit } = window.__TAURI__.event;
 
@@ -86,7 +88,7 @@ for (const [tab, title] of tabSections) {
       const control = label ? $(label.htmlFor) : row.querySelector('[id]');
       if (!control || seen.has(control.id) || control.id.endsWith('-val')) continue;
       const fallback = row.querySelector(':scope > span:first-child');
-      // The range labels gain a tooltip button later in this file. Build the
+      // The range labels gained a tooltip button above. Build the
       // sidebar title from a copy without that control so its visible `i`
       // glyph never becomes part of entries such as “Shift icon size”.
       const labelText = label
@@ -158,13 +160,6 @@ document.querySelectorAll('.tab-button').forEach((button) => {
 });
 selectTab('layout');
 
-function versionTuple(value) {
-  return String(value).replace(/^v/, '').split('.').map(Number);
-}
-function isNewerVersion(remote, current) {
-  const a = versionTuple(remote); const b = versionTuple(current);
-  return a.some((part, index) => part > (b[index] || 0)) && !a.some((part, index) => part < (b[index] || 0));
-}
 async function refreshKeyboardOverview() {
   const details = await invoke('get_keyboard_details');
   $('keyboard-model').textContent = `${details.model || 'Unknown'} by ${details.manufacturer || 'Unknown'}`;

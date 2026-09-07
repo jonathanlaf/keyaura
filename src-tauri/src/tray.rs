@@ -1,4 +1,6 @@
-use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
+#[cfg(debug_assertions)]
+use tauri::menu::Submenu;
+use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Listener, Manager};
 
@@ -153,13 +155,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 }
             }
             "pin" => {
-                // Flip our own tracked flag rather than trusting the menu
-                // item's post-click is_checked() — whether the native menu
-                // auto-toggles its checkmark before or after firing this
-                // event is platform/toolkit behavior we don't control, and
-                // reading it produced the exact "one click behind" symptom
-                // this replaced. Our AtomicBool is the single source of
-                // truth; set_checked() below only syncs the checkmark to it.
+                // The shared interactive-mode flag drives the menu's action
+                // label. Its legacy name is `pinned`; true means unpinned
+                // with grab controls visible in the current UI.
                 let state = app.state::<crate::state::HudState>();
                 let pinned = !state.pinned.load(std::sync::atomic::Ordering::SeqCst);
                 let _ = pin_handle.set_text(if pinned {

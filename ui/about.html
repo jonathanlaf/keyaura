@@ -30,10 +30,18 @@
   </div>
   <script type="module">
     const { invoke } = window.__TAURI__.core;
-    document.querySelector('#version').textContent = `Version ${await invoke('get_app_version')}`;
+    void invoke('get_app_version').then(version => {
+      document.querySelector('#version').textContent = `Version ${version}`;
+    }).catch(() => { document.querySelector('#version').textContent = 'Version unavailable'; });
     document.querySelector('#keymapp-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://www.zsa.io/keymapp' }));
     document.querySelector('#source-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://github.com/jonathanlaf/layer-hud' }));
-    document.querySelector('#oryx-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://configure.zsa.io/' }));
+    document.querySelector('#oryx-link').addEventListener('click', async () => {
+      const details = await invoke('get_keyboard_details').catch(() => null);
+      const url = details?.layout && details?.revision
+        ? `https://configure.zsa.io/voyager/layouts/${encodeURIComponent(details.layout)}/${encodeURIComponent(details.revision)}/0`
+        : 'https://configure.zsa.io/';
+      await invoke('open_external_url', { url });
+    });
     document.querySelector('#training-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://typ.ing/' }));
     document.querySelector('#qmk-link').addEventListener('click', () => invoke('open_external_url', { url: 'https://qmk.fm/' }));
   </script>
