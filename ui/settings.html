@@ -205,7 +205,6 @@
     <div class="settings-tree">
     <div class="tab-category"><button class="tab-collapse-toggle" type="button" aria-label="Collapse General" aria-expanded="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg></button><button class="tab-button active" type="button" data-tab="layout">General</button></div>
     <div class="tab-category"><button class="tab-collapse-toggle" type="button" aria-label="Collapse Appearance" aria-expanded="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg></button><button class="tab-button" type="button" data-tab="appearance">Appearance</button></div>
-    <div class="tab-category"><button class="tab-collapse-toggle" type="button" aria-label="Collapse Position" aria-expanded="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" /></svg></button><button class="tab-button" type="button" data-tab="position">Position</button></div>
     </div>
     <div class="sidebar-actions"><button id="collapse-all" type="button">Collapse All</button><button id="expand-all" type="button">Expand All</button></div>
   </nav>
@@ -240,8 +239,6 @@
       <legend class="key-style-group-title">Misc</legend>
       <div class="key-style-grid">
         <div class="row"><label for="key-spacing">Key spacing</label><input type="range" id="key-spacing" min="0" max="0.25" step="0.01" /><input class="val" id="key-spacing-val" inputmode="decimal" /></div>
-        <div class="row"><label for="layer-pill-border-radius">Layer name pill radius</label><input type="range" id="layer-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="layer-pill-border-radius-val" inputmode="decimal" /></div>
-        <div class="row"><label for="offline-pill-border-radius">Offline indicator pill radius</label><input type="range" id="offline-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="offline-pill-border-radius-val" inputmode="decimal" /></div>
         <div class="row"><label for="font-ligatures">Support programming ligatures</label><input type="checkbox" id="font-ligatures" checked /></div>
         <div class="row"><label for="colors-toggle">Use Oryx Layer colors <span class="setting-info" data-manual-tooltip="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature." aria-label="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature.">i</span></label><input type="checkbox" id="colors-toggle" /></div>
       </div>
@@ -330,6 +327,12 @@
       <legend class="key-style-group-title">Misc</legend>
       <div class="key-style-grid">
         <div class="row"><label for="padding">Padding</label><input type="range" id="padding" min="0" max="60" step="2" /><input class="val" id="padding-val" inputmode="decimal" aria-label="Padding value" /></div>
+        <div class="row"><label for="layer-pill-horizontal">Layer pill horizontal position</label><input type="range" id="layer-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="layer-pill-horizontal-val" inputmode="numeric" aria-label="Layer pill horizontal position percentage" /></div>
+        <div class="row"><label for="offline-pill-horizontal">Offline pill horizontal position</label><input type="range" id="offline-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="offline-pill-horizontal-val" inputmode="numeric" aria-label="Offline pill horizontal position percentage" /></div>
+        <div class="row"><label for="layer-pill-vertical">Layer pill vertical position</label><input type="range" id="layer-pill-vertical" min="0" max="100" step="1" /><input class="val" id="layer-pill-vertical-val" inputmode="numeric" aria-label="Layer pill vertical position percentage" /></div>
+        <div class="row"><label for="offline-pill-vertical">Offline pill vertical position</label><input type="range" id="offline-pill-vertical" min="0" max="100" step="1" /><input class="val" id="offline-pill-vertical-val" inputmode="numeric" aria-label="Offline pill vertical position percentage" /></div>
+        <div class="row"><label for="layer-pill-border-radius">Layer name pill radius</label><input type="range" id="layer-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="layer-pill-border-radius-val" inputmode="decimal" /></div>
+        <div class="row"><label for="offline-pill-border-radius">Offline indicator pill radius</label><input type="range" id="offline-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="offline-pill-border-radius-val" inputmode="decimal" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
@@ -378,8 +381,8 @@
     <div class="row"><span class="hint">Record up to 64 physical presses in order; leave less than one second between presses when triggering it. Holding a key adds one press.</span></div>
   </div>
 
-  <h2>Position</h2>
-  <div class="card">
+  <div class="card" data-tab-section="layout">
+    <div class="card-section-title">Overlay position</div>
     <div class="row">
       <label>Overlay position</label>
       <span class="position-actions">
@@ -401,13 +404,12 @@
       <span><strong>Reset layout</strong><br /><span class="hint">Restore the default position, size, and keyboard halves distance.</span></span>
       <button class="reset-layout-button" id="reset-position" type="button" aria-label="Reset layout position, size, and keyboard spacing" title="Reset layout position, size, and keyboard spacing">Reset layout</button>
     </div>
-    <div class="row"><label for="layer-pill-horizontal">Layer pill horizontal position</label><input type="range" id="layer-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="layer-pill-horizontal-val" inputmode="numeric" aria-label="Layer pill horizontal position percentage" /></div>
-    <div class="row"><label for="layer-pill-vertical">Layer pill vertical position</label><input type="range" id="layer-pill-vertical" min="0" max="100" step="1" /><input class="val" id="layer-pill-vertical-val" inputmode="numeric" aria-label="Layer pill vertical position percentage" /></div>
-    <div class="row"><label for="offline-pill-horizontal">Offline pill horizontal position</label><input type="range" id="offline-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="offline-pill-horizontal-val" inputmode="numeric" aria-label="Offline pill horizontal position percentage" /></div>
-    <div class="row"><label for="offline-pill-vertical">Offline pill vertical position</label><input type="range" id="offline-pill-vertical" min="0" max="100" step="1" /><input class="val" id="offline-pill-vertical-val" inputmode="numeric" aria-label="Offline pill vertical position percentage" /></div>
+  </div>
+  <div class="card" data-tab-section="layout">
+    <div class="card-section-title">Toggle overlay</div>
     <div class="row"><label for="hide-side">Hidden edge</label><select id="hide-side"><option value="left">Left</option><option value="right">Right</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
     <div class="row"><label for="hide-reveal">Visible when hidden</label><input type="range" id="hide-reveal" min="0" max="1" step="0.01" /><input class="val" id="hide-reveal-val" inputmode="decimal" /></div>
-    <div class="row"><label for="hide-animation-ms">Hide/show animation (ms)</label><input type="range" id="hide-animation-ms" min="0" max="1000" step="20" /><input class="val" id="hide-animation-ms-val" inputmode="decimal" /></div>
+    <div class="row"><label for="hide-animation-ms">Hide/show animation speed</label><input type="range" id="hide-animation-ms" min="0" max="1000" step="20" /><input class="val" id="hide-animation-ms-val" inputmode="decimal" /></div>
   </div>
 
   <h2 data-tab-section="layout">Settings data</h2>

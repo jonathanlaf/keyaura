@@ -28,7 +28,6 @@ async function resetAllSettings() {
 
 const tabSections = new Map([
   ['layout', 'General'], ['appearance', 'Appearance'],
-  ['position', 'Position'],
 ]);
 const settingSearch = $('settings-search');
 const sidebarResizer = $('sidebar-resizer');
