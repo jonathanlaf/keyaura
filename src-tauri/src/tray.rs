@@ -203,7 +203,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 .always_on_top(true)
                 .build()
                 {
-                    eprintln!("Failed to open icon legend: {e}");
+                    eprintln!("KeyAura: failed to open icon legend: {e}");
                 }
             }
             "about" => {
@@ -222,7 +222,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 .always_on_top(true)
                 .build()
                 {
-                    eprintln!("Failed to open About window: {e}");
+                    eprintln!("KeyAura: failed to open About window: {e}");
                 }
             }
             "settings" => {
@@ -240,7 +240,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                             (cfg.settings_window_width, cfg.settings_window_height)
                         })
                         .unwrap_or((860.0, 760.0));
-                    let _ = tauri::WebviewWindowBuilder::new(
+                    if let Err(e) = tauri::WebviewWindowBuilder::new(
                         app,
                         "settings",
                         tauri::WebviewUrl::App("settings.html".into()),
@@ -249,7 +249,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     .inner_size(width, height)
                     .min_inner_size(680.0, 560.0)
                     .always_on_top(true)
-                    .build();
+                    .build()
+                    {
+                        eprintln!("KeyAura: failed to open Settings window: {e}");
+                    }
                 }
             }
             #[cfg(debug_assertions)]

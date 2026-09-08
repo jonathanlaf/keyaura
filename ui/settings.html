@@ -80,7 +80,7 @@
     background: light-dark(#fff, #3a3a42); color: inherit; text-decoration: none;
   }
   .button-link:active { filter: brightness(0.92); }
-  .position-actions { display: flex; gap: 5px; }
+  .position-actions { display: flex; gap: 5px; margin-left: auto; }
   .icon-button { width: 32px; height: 30px; padding: 5px; display: inline-flex;
     align-items: center; justify-content: center; }
   .icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor;
@@ -223,11 +223,11 @@
   <div class="card" data-tab-section="layout">
     <div class="card-section-title">Startup options</div>
     <div class="row">
-      <label for="autostart">Start at login</label>
+      <label for="autostart" title="Start at login">Start at login</label>
       <input type="checkbox" id="autostart" />
     </div>
     <div class="row">
-      <label for="start-hidden">Start hidden</label>
+      <label for="start-hidden" title="Start hidden">Start hidden</label>
       <input type="checkbox" id="start-hidden" />
     </div>
   </div>
@@ -238,85 +238,85 @@
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Misc</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="key-spacing">Key spacing</label><input type="range" id="key-spacing" min="0" max="0.25" step="0.01" /><input class="val" id="key-spacing-val" inputmode="decimal" /></div>
-        <div class="row"><label for="font-ligatures">Support programming ligatures</label><input type="checkbox" id="font-ligatures" checked /></div>
-        <div class="row"><label for="colors-toggle">Use Oryx Layer colors <span class="setting-info" data-manual-tooltip="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature." aria-label="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature.">i</span></label><input type="checkbox" id="colors-toggle" /></div>
+        <div class="row"><label for="key-spacing" title="Key spacing">Key spacing</label><input type="range" id="key-spacing" min="0" max="0.25" step="0.01" /><input class="val" id="key-spacing-val" inputmode="decimal" /></div>
+        <div class="row"><label for="font-ligatures" title="Support programming ligatures">Support programming ligatures</label><input type="checkbox" id="font-ligatures" checked /></div>
+        <div class="row"><label for="colors-toggle" title="Use Oryx layer colors">Use Oryx layer colors <span class="setting-info" data-manual-tooltip="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature." aria-label="This option is specific to ZSA keyboards using Oryx layout metadata; it is not a standard QMK feature.">i</span></label><input type="checkbox" id="colors-toggle" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Icons</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="layer-action-icons">Show layer action icons</label><input type="checkbox" id="layer-action-icons" /></div>
-        <div class="row"><label for="layer-indicator">Layer indicator type</label><select id="layer-indicator"><option value="none">None</option><option value="textual">Textual</option><option value="icon">Icon</option></select></div>
-        <div class="row color-row"><input type="color" id="legend-color" aria-label="Layer trigger color" /><label for="legend-color">Layer triggers</label></div>
-        <div class="row"><label for="shift-icons">Show Shift icons</label><input type="checkbox" id="shift-icons" /></div>
-        <div class="row color-row"><input type="color" id="shift-color" aria-label="Shift character color" /><label for="shift-color">Shift characters</label></div>
-        <div class="row"><label for="shift-icon-scale">Shift icon size</label><input type="range" id="shift-icon-scale" min="0.5" max="2.5" step="0.1" /><input class="val" id="shift-icon-scale-val" inputmode="decimal" aria-label="Shift icon size percentage" /></div>
-        <div class="row"><label for="alternate-action-icons">Show alternate character action icons</label><input type="checkbox" id="alternate-action-icons" /></div>
-        <div class="row alternate-setting"><label for="alternate-action-icon-scale">Alternate icon size</label><input type="range" id="alternate-action-icon-scale" min="0.5" max="2.5" step="0.1" /><input class="val" id="alternate-action-icon-scale-val" inputmode="decimal" aria-label="Alternate action icon size percentage" /></div>
+        <div class="row"><label for="layer-action-icons" title="Show layer action icons">Show layer action icons</label><input type="checkbox" id="layer-action-icons" /></div>
+        <div class="row"><label for="layer-indicator" title="Layer indicator type">Layer indicator type</label><select id="layer-indicator"><option value="none">None</option><option value="textual">Textual</option><option value="icon">Icon</option></select></div>
+        <div class="row color-row"><input type="color" id="legend-color" aria-label="Layer trigger color" /><label for="legend-color" title="Layer triggers">Layer triggers</label></div>
+        <div class="row"><label for="shift-icons" title="Show Shift icons">Show Shift icons</label><input type="checkbox" id="shift-icons" /></div>
+        <div class="row color-row"><input type="color" id="shift-color" aria-label="Shift character color" /><label for="shift-color" title="Shift characters">Shift characters</label></div>
+        <div class="row"><label for="shift-icon-scale" title="Shift icon size">Shift icon size</label><input type="range" id="shift-icon-scale" min="0.5" max="2.5" step="0.1" /><input class="val" id="shift-icon-scale-val" inputmode="decimal" aria-label="Shift icon size percentage" /></div>
+        <div class="row"><label for="alternate-action-icons" title="Show alternate character action icons">Show alternate character action icons</label><input type="checkbox" id="alternate-action-icons" /></div>
+        <div class="row alternate-setting"><label for="alternate-action-icon-scale" title="Alternate icon size">Alternate icon size</label><input type="range" id="alternate-action-icon-scale" min="0.5" max="2.5" step="0.1" /><input class="val" id="alternate-action-icon-scale-val" inputmode="decimal" aria-label="Alternate action icon size percentage" /></div>
       </div>
       <div class="row"><span class="hint">Layer indicator and action icons describe the physical actions needed to access layers. Shift and alternate icons identify alternate characters.</span></div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Heatmap</legend>
       <div class="key-style-grid">
-        <div class="row color-row"><input type="color" id="heatmap-color" /><label for="heatmap-color">Color</label></div>
-        <div class="row"><label for="heatmap-toggle">Show heatmap</label><input type="checkbox" id="heatmap-toggle" /></div>
-        <div class="row"><label for="heatmap-counts-toggle">Show heatmap counts on keys</label><input type="checkbox" id="heatmap-counts-toggle" /></div>
-        <div class="row"><label for="heatmap-peak">Heatmap saturation presses</label><input type="range" id="heatmap-peak" min="1" max="1000" step="1" /><input class="val" id="heatmap-peak-val" inputmode="numeric" /></div>
+        <div class="row color-row"><input type="color" id="heatmap-color" /><label for="heatmap-color" title="Color">Color</label></div>
+        <div class="row"><label for="heatmap-toggle" title="Show heatmap">Show heatmap</label><input type="checkbox" id="heatmap-toggle" /></div>
+        <div class="row"><label for="heatmap-counts-toggle" title="Show heatmap counts on keys">Show heatmap counts on keys</label><input type="checkbox" id="heatmap-counts-toggle" /></div>
+        <div class="row"><label for="heatmap-peak" title="Heatmap saturation presses">Heatmap saturation presses</label><input type="range" id="heatmap-peak" min="1" max="1000" step="1" /><input class="val" id="heatmap-peak-val" inputmode="numeric" /></div>
       </div>
       <div class="row"><span class="hint">Tint frequently used keys by intensity. Press counts accumulate whenever the app is running, even with the colors hidden.</span></div>
       <div class="row"><span class="hint">Counts replace key labels with recorded press totals. Double-taps count twice; holds count once. History is shared across layers.</span></div>
-      <div class="row"><label>Heatmap history</label><span><span id="heatmap-count" class="hint">0 presses</span> <button id="heatmap-reset" type="button">Reset</button></span></div>
+      <div class="row"><label title="Heatmap history">Heatmap history</label><span><span id="heatmap-count" class="hint">0 presses</span> <button id="heatmap-reset" type="button">Reset</button></span></div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Fill</legend>
       <div class="key-style-grid">
-        <div class="row color-row"><input type="color" id="key-fill-color" /><label for="key-fill-color">Fill</label></div>
-        <div class="row color-row"><input type="color" id="pressed-key-color" /><label for="pressed-key-color">Fill pressed</label></div>
-        <div class="row"><label for="key-fill-opacity">Fill opacity</label><input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-fill-opacity-val" inputmode="decimal" aria-label="Key fill opacity value" /></div>
-        <div class="row"><label for="pressed-key-fill-opacity">Fill opacity pressed</label><input type="range" id="pressed-key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-fill-opacity-val" inputmode="decimal" /></div>
+        <div class="row color-row"><input type="color" id="key-fill-color" /><label for="key-fill-color" title="Fill">Fill</label></div>
+        <div class="row color-row"><input type="color" id="pressed-key-color" /><label for="pressed-key-color" title="Pressed fill">Pressed fill</label></div>
+        <div class="row"><label for="key-fill-opacity" title="Fill opacity">Fill opacity</label><input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-fill-opacity-val" inputmode="decimal" aria-label="Key fill opacity value" /></div>
+        <div class="row"><label for="pressed-key-fill-opacity" title="Pressed fill opacity">Pressed fill opacity</label><input type="range" id="pressed-key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-fill-opacity-val" inputmode="decimal" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Text</legend>
       <div class="key-style-grid">
-        <div class="row color-row"><input type="color" id="text-color" /><label for="text-color">Base text</label></div>
-        <div class="row color-row"><input type="color" id="alternate-color" aria-label="Alternate character color" /><label for="alternate-color">Alternate char</label></div>
-        <div class="row"><label for="char-opacity">Text base opacity</label><input type="range" id="char-opacity" min="0.2" max="1" step="0.05" /><input class="val" id="char-opacity-val" inputmode="decimal" aria-label="Text base opacity value" /></div>
-        <div class="row"><label for="alternate-char-opacity">Text alternate opacity</label><input type="range" id="alternate-char-opacity" min="0.2" max="1" step="0.05" /><input class="val" id="alternate-char-opacity-val" inputmode="decimal" aria-label="Text alternate opacity value" /></div>
+        <div class="row color-row"><input type="color" id="text-color" /><label for="text-color" title="Base text">Base text</label></div>
+        <div class="row color-row"><input type="color" id="alternate-color" aria-label="Alternate character color" /><label for="alternate-color" title="Alternate char">Alternate char</label></div>
+        <div class="row"><label for="char-opacity" title="Text base opacity">Text base opacity</label><input type="range" id="char-opacity" min="0.2" max="1" step="0.05" /><input class="val" id="char-opacity-val" inputmode="decimal" aria-label="Text base opacity value" /></div>
+        <div class="row"><label for="pressed-char-opacity" title="Text opacity pressed">Text opacity pressed</label><input type="range" id="pressed-char-opacity" min="0.2" max="1" step="0.05" /><input class="val" id="pressed-char-opacity-val" inputmode="decimal" aria-label="Pressed text opacity value" /></div>
+        <div class="row"><label for="alternate-char-opacity" title="Text alternate opacity">Text alternate opacity</label><input type="range" id="alternate-char-opacity" min="0.2" max="1" step="0.05" /><input class="val" id="alternate-char-opacity-val" inputmode="decimal" aria-label="Text alternate opacity value" /></div>
       </div>
-      <div class="font-group"><div class="font-title">Key characters</div><div class="font-inline-row"><label for="key-font-family">Font<input type="text" id="key-font-family" list="font-families" placeholder="System default" /></label><label for="key-font-size">Size<select id="key-font-size"><option value="0.5">0.5×</option><option value="0.6">0.6×</option><option value="0.7">0.7×</option><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option><option value="1.3">1.3×</option><option value="1.4">1.4×</option><option value="1.5">1.5×</option><option value="1.6">1.6×</option><option value="1.7">1.7×</option><option value="1.8">1.8×</option><option value="1.9">1.9×</option><option value="2">2×</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="key" data-style="bold"><b>B</b></button><button type="button" data-font-style="key" data-style="italic"><i>I</i></button></span></span></div></div>
-      <div class="font-group"><div class="font-title">Alternate char</div><div class="font-inline-row"><label for="legend-font-family">Font<input type="text" id="legend-font-family" list="font-families" placeholder="System default" /></label><label for="legend-font-size">Size<select id="legend-font-size"><option value="0.5">0.5×</option><option value="0.6">0.6×</option><option value="0.7">0.7×</option><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option><option value="1.3">1.3×</option><option value="1.4">1.4×</option><option value="1.5">1.5×</option><option value="1.6">1.6×</option><option value="1.7">1.7×</option><option value="1.8">1.8×</option><option value="1.9">1.9×</option><option value="2">2×</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="legend" data-style="bold"><b>B</b></button><button type="button" data-font-style="legend" data-style="italic"><i>I</i></button></span></span></div></div>
-      <div class="font-group"><div class="font-title">Layer name</div><div class="font-inline-row"><label for="layer-name-font-family">Font<input type="text" id="layer-name-font-family" list="font-families" placeholder="System default" /></label><label for="layer-name-font-size">Size<select id="layer-name-font-size"><option value="8">8 px</option><option value="9">9 px</option><option value="10">10 px</option><option value="11">11 px</option><option value="12">12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option><option value="17">17 px</option><option value="18">18 px</option><option value="19">19 px</option><option value="20">20 px</option><option value="21">21 px</option><option value="22">22 px</option><option value="23">23 px</option><option value="24">24 px</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="layer_name" data-style="bold"><b>B</b></button><button type="button" data-font-style="layer_name" data-style="italic"><i>I</i></button></span></span></div></div>
+      <div class="font-group"><div class="font-title">Key characters</div><div class="font-inline-row"><label for="key-font-family" title="Font">Font<input type="text" id="key-font-family" list="font-families" placeholder="System default" /></label><label for="key-font-size" title="Size">Size<select id="key-font-size"><option value="0.5">0.5×</option><option value="0.6">0.6×</option><option value="0.7">0.7×</option><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option><option value="1.3">1.3×</option><option value="1.4">1.4×</option><option value="1.5">1.5×</option><option value="1.6">1.6×</option><option value="1.7">1.7×</option><option value="1.8">1.8×</option><option value="1.9">1.9×</option><option value="2">2×</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="key" data-style="bold"><b>B</b></button><button type="button" data-font-style="key" data-style="italic"><i>I</i></button></span></span></div></div>
+      <div class="font-group"><div class="font-title">Alternate char</div><div class="font-inline-row"><label for="legend-font-family" title="Font">Font<input type="text" id="legend-font-family" list="font-families" placeholder="System default" /></label><label for="legend-font-size" title="Size">Size<select id="legend-font-size"><option value="0.5">0.5×</option><option value="0.6">0.6×</option><option value="0.7">0.7×</option><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1">1×</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option><option value="1.3">1.3×</option><option value="1.4">1.4×</option><option value="1.5">1.5×</option><option value="1.6">1.6×</option><option value="1.7">1.7×</option><option value="1.8">1.8×</option><option value="1.9">1.9×</option><option value="2">2×</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="legend" data-style="bold"><b>B</b></button><button type="button" data-font-style="legend" data-style="italic"><i>I</i></button></span></span></div></div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Borders</legend>
       <div class="key-style-grid">
-        <div class="row color-row"><input type="color" id="border-color" /><label for="border-color">Border</label></div>
-        <div class="row color-row"><input type="color" id="pressed-key-border-color" /><label for="pressed-key-border-color">Pressed</label></div>
-        <div class="row"><label for="border-opacity">Opacity</label><input type="range" id="border-opacity" min="0" max="1" step="0.05" /><input class="val" id="border-opacity-val" inputmode="decimal" aria-label="Key border opacity value" /></div>
-        <div class="row"><label for="pressed-key-border-opacity">Pressed opacity</label><input type="range" id="pressed-key-border-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-border-opacity-val" inputmode="decimal" /></div>
-        <div class="row"><label for="border-width">Key border thickness</label><input type="range" id="border-width" min="0" max="5" step="0.5" /><input class="val" id="border-width-val" inputmode="decimal" aria-label="Key border thickness value" /></div>
-        <div class="row"><label for="pressed-key-border-width">Pressed border thickness</label><input type="range" id="pressed-key-border-width" min="0" max="5" step="0.5" /><input class="val" id="pressed-key-border-width-val" inputmode="decimal" /></div>
-        <div class="row"><label for="key-border-radius">Radius</label><input type="range" id="key-border-radius" min="0" max="30" step="1" /><input class="val" id="key-border-radius-val" inputmode="decimal" /></div>
+        <div class="row color-row"><input type="color" id="border-color" /><label for="border-color" title="Border">Border</label></div>
+        <div class="row color-row"><input type="color" id="pressed-key-border-color" /><label for="pressed-key-border-color" title="Pressed">Pressed</label></div>
+        <div class="row"><label for="border-opacity" title="Opacity">Opacity</label><input type="range" id="border-opacity" min="0" max="1" step="0.05" /><input class="val" id="border-opacity-val" inputmode="decimal" aria-label="Key border opacity value" /></div>
+        <div class="row"><label for="pressed-key-border-opacity" title="Pressed opacity">Pressed opacity</label><input type="range" id="pressed-key-border-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-border-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="border-width" title="Thickness">Thickness</label><input type="range" id="border-width" min="0" max="5" step="0.5" /><input class="val" id="border-width-val" inputmode="decimal" aria-label="Border thickness value" /></div>
+        <div class="row"><label for="pressed-key-border-width" title="Pressed thickness">Pressed thickness</label><input type="range" id="pressed-key-border-width" min="0" max="5" step="0.5" /><input class="val" id="pressed-key-border-width-val" inputmode="decimal" /></div>
+        <div class="row"><label for="key-border-radius" title="Radius">Radius</label><input type="range" id="key-border-radius" min="0" max="30" step="1" /><input class="val" id="key-border-radius-val" inputmode="decimal" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Shadow</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="key-shadows">Enable shadow</label><input type="checkbox" id="key-shadows" /></div>
-        <div class="row"><label for="pressed-key-shadow">Enable pressed shadow</label><input type="checkbox" id="pressed-key-shadow" /></div>
-        <div class="row color-row"><input type="color" id="key-shadow-color" /><label for="key-shadow-color">Shadow</label></div>
-        <div class="row color-row"><input type="color" id="pressed-key-shadow-color" /><label for="pressed-key-shadow-color">Pressed shadow</label></div>
-        <div class="row"><label for="key-shadow-position">Position</label><select id="key-shadow-position"><option value="glow">Glow</option><option value="top-right">Top-right</option><option value="top-left">Top-left</option><option value="bottom-right">Bottom-right</option><option value="bottom-left">Bottom-left</option></select></div>
-        <div class="row"><label for="pressed-key-shadow-position">Position pressed</label><select id="pressed-key-shadow-position"><option value="glow">Glow</option><option value="top-right">Top-right</option><option value="top-left">Top-left</option><option value="bottom-right">Bottom-right</option><option value="bottom-left">Bottom-left</option></select></div>
-        <div class="row"><label for="key-shadow-opacity">Opacity</label><input type="range" id="key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-shadow-opacity-val" inputmode="decimal" /></div>
-        <div class="row"><label for="pressed-key-shadow-opacity">Pressed-key opacity</label><input type="range" id="pressed-key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-shadow-opacity-val" inputmode="decimal" /></div>
-        <div class="row"><label for="key-shadow-distance">Distance</label><input type="range" id="key-shadow-distance" min="0" max="20" step="1" /><input class="val" id="key-shadow-distance-val" inputmode="numeric" /></div>
-        <div class="row"><label for="pressed-key-shadow-distance">Distance pressed</label><input type="range" id="pressed-key-shadow-distance" min="0" max="20" step="1" /><input class="val" id="pressed-key-shadow-distance-val" inputmode="numeric" /></div>
-        <div class="row"><label for="key-shadow-diffusion">Diffusion</label><input type="range" id="key-shadow-diffusion" min="0" max="30" step="1" /><input class="val" id="key-shadow-diffusion-val" inputmode="numeric" /></div>
-        <div class="row"><label for="pressed-key-shadow-diffusion">Diffusion pressed</label><input type="range" id="pressed-key-shadow-diffusion" min="0" max="30" step="1" /><input class="val" id="pressed-key-shadow-diffusion-val" inputmode="numeric" /></div>
+        <div class="row"><label for="key-shadows" title="Enable shadow">Enable shadow</label><input type="checkbox" id="key-shadows" /></div>
+        <div class="row"><label for="pressed-key-shadow" title="Enable pressed shadow">Enable pressed shadow</label><input type="checkbox" id="pressed-key-shadow" /></div>
+        <div class="row color-row"><input type="color" id="key-shadow-color" /><label for="key-shadow-color" title="Shadow">Shadow</label></div>
+        <div class="row color-row"><input type="color" id="pressed-key-shadow-color" /><label for="pressed-key-shadow-color" title="Pressed shadow">Pressed shadow</label></div>
+        <div class="row"><label for="key-shadow-position" title="Position">Position</label><select id="key-shadow-position"><option value="glow">Glow</option><option value="top-right">Top-right</option><option value="top-left">Top-left</option><option value="bottom-right">Bottom-right</option><option value="bottom-left">Bottom-left</option></select></div>
+        <div class="row"><label for="pressed-key-shadow-position" title="Pressed position">Pressed position</label><select id="pressed-key-shadow-position"><option value="glow">Glow</option><option value="top-right">Top-right</option><option value="top-left">Top-left</option><option value="bottom-right">Bottom-right</option><option value="bottom-left">Bottom-left</option></select></div>
+        <div class="row"><label for="key-shadow-opacity" title="Opacity">Opacity</label><input type="range" id="key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-shadow-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="pressed-key-shadow-opacity" title="Pressed opacity">Pressed opacity</label><input type="range" id="pressed-key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-shadow-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="key-shadow-distance" title="Distance">Distance</label><input type="range" id="key-shadow-distance" min="0" max="20" step="1" /><input class="val" id="key-shadow-distance-val" inputmode="numeric" /></div>
+        <div class="row"><label for="pressed-key-shadow-distance" title="Pressed distance">Pressed distance</label><input type="range" id="pressed-key-shadow-distance" min="0" max="20" step="1" /><input class="val" id="pressed-key-shadow-distance-val" inputmode="numeric" /></div>
+        <div class="row"><label for="key-shadow-diffusion" title="Diffusion">Diffusion</label><input type="range" id="key-shadow-diffusion" min="0" max="30" step="1" /><input class="val" id="key-shadow-diffusion-val" inputmode="numeric" /></div>
+        <div class="row"><label for="pressed-key-shadow-diffusion" title="Pressed diffusion">Pressed diffusion</label><input type="range" id="pressed-key-shadow-diffusion" min="0" max="30" step="1" /><input class="val" id="pressed-key-shadow-diffusion-val" inputmode="numeric" /></div>
       </div>
     </fieldset>
   </div>
@@ -326,40 +326,66 @@
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Misc</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="padding">Padding</label><input type="range" id="padding" min="0" max="60" step="2" /><input class="val" id="padding-val" inputmode="decimal" aria-label="Padding value" /></div>
-        <div class="row"><label for="layer-pill-horizontal">Layer pill horizontal position</label><input type="range" id="layer-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="layer-pill-horizontal-val" inputmode="numeric" aria-label="Layer pill horizontal position percentage" /></div>
-        <div class="row"><label for="offline-pill-horizontal">Offline pill horizontal position</label><input type="range" id="offline-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="offline-pill-horizontal-val" inputmode="numeric" aria-label="Offline pill horizontal position percentage" /></div>
-        <div class="row"><label for="layer-pill-vertical">Layer pill vertical position</label><input type="range" id="layer-pill-vertical" min="0" max="100" step="1" /><input class="val" id="layer-pill-vertical-val" inputmode="numeric" aria-label="Layer pill vertical position percentage" /></div>
-        <div class="row"><label for="offline-pill-vertical">Offline pill vertical position</label><input type="range" id="offline-pill-vertical" min="0" max="100" step="1" /><input class="val" id="offline-pill-vertical-val" inputmode="numeric" aria-label="Offline pill vertical position percentage" /></div>
-        <div class="row"><label for="layer-pill-border-radius">Layer name pill radius</label><input type="range" id="layer-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="layer-pill-border-radius-val" inputmode="decimal" /></div>
-        <div class="row"><label for="offline-pill-border-radius">Offline indicator pill radius</label><input type="range" id="offline-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="offline-pill-border-radius-val" inputmode="decimal" /></div>
+        <div class="row"><label for="padding" title="Padding">Padding</label><input type="range" id="padding" min="0" max="60" step="2" /><input class="val" id="padding-val" inputmode="decimal" aria-label="Padding value" /></div>
+        <div class="row"><label for="layer-pill-horizontal" title="Layer name pill horizontal position">Layer name pill horizontal position</label><input type="range" id="layer-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="layer-pill-horizontal-val" inputmode="numeric" aria-label="Layer name pill horizontal position percentage" /></div>
+        <div class="row"><label for="offline-pill-horizontal" title="Offline indicator pill horizontal position">Offline indicator pill horizontal position</label><input type="range" id="offline-pill-horizontal" min="0" max="100" step="1" /><input class="val" id="offline-pill-horizontal-val" inputmode="numeric" aria-label="Offline indicator pill horizontal position percentage" /></div>
+        <div class="row"><label for="layer-pill-vertical" title="Layer name pill vertical position">Layer name pill vertical position</label><input type="range" id="layer-pill-vertical" min="0" max="100" step="1" /><input class="val" id="layer-pill-vertical-val" inputmode="numeric" aria-label="Layer name pill vertical position percentage" /></div>
+        <div class="row"><label for="offline-pill-vertical" title="Offline indicator pill vertical position">Offline indicator pill vertical position</label><input type="range" id="offline-pill-vertical" min="0" max="100" step="1" /><input class="val" id="offline-pill-vertical-val" inputmode="numeric" aria-label="Offline indicator pill vertical position percentage" /></div>
+        <div class="row"><label for="layer-pill-border-radius" title="Layer name pill radius">Layer name pill radius</label><input type="range" id="layer-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="layer-pill-border-radius-val" inputmode="decimal" /></div>
+        <div class="row"><label for="offline-pill-border-radius" title="Offline indicator pill radius">Offline indicator pill radius</label><input type="range" id="offline-pill-border-radius" min="0" max="999" step="1" /><input class="val" id="offline-pill-border-radius-val" inputmode="decimal" /></div>
       </div>
+    </fieldset>
+    <fieldset class="key-style-group">
+      <legend class="key-style-group-title">Layer name pill</legend>
+      <div class="key-style-grid">
+        <div class="row color-row"><input type="color" id="layer-pill-text-color" /><label for="layer-pill-text-color" title="Text color">Text color</label></div>
+        <div class="row color-row"><input type="color" id="layer-pill-fill-color" /><label for="layer-pill-fill-color" title="Fill">Fill</label></div>
+        <div class="row"><label for="layer-pill-text-opacity" title="Text opacity">Text opacity</label><input type="range" id="layer-pill-text-opacity" min="0" max="1" step="0.05" /><input class="val" id="layer-pill-text-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="layer-pill-fill-opacity" title="Fill opacity">Fill opacity</label><input type="range" id="layer-pill-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="layer-pill-fill-opacity-val" inputmode="decimal" /></div>
+        <div class="row color-row"><input type="color" id="layer-pill-border-color" /><label for="layer-pill-border-color" title="Border color">Border color</label></div>
+        <div class="row"><label for="layer-pill-border-width" title="Border thickness">Border thickness</label><input type="range" id="layer-pill-border-width" min="0" max="5" step="0.5" /><input class="val" id="layer-pill-border-width-val" inputmode="decimal" /></div>
+        <div class="row"><label for="layer-pill-border-opacity" title="Border opacity">Border opacity</label><input type="range" id="layer-pill-border-opacity" min="0" max="1" step="0.05" /><input class="val" id="layer-pill-border-opacity-val" inputmode="decimal" /></div>
+      </div>
+      <div class="font-group"><div class="font-title">Text</div><div class="font-inline-row"><label for="layer-name-font-family" title="Font">Font<input type="text" id="layer-name-font-family" list="font-families" placeholder="System default" /></label><label for="layer-name-font-size" title="Size">Size<select id="layer-name-font-size"><option value="8">8 px</option><option value="9">9 px</option><option value="10">10 px</option><option value="11">11 px</option><option value="12">12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option><option value="17">17 px</option><option value="18">18 px</option><option value="19">19 px</option><option value="20">20 px</option><option value="21">21 px</option><option value="22">22 px</option><option value="23">23 px</option><option value="24">24 px</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="layer_name" data-style="bold"><b>B</b></button><button type="button" data-font-style="layer_name" data-style="italic"><i>I</i></button></span></span></div></div>
+    </fieldset>
+    <fieldset class="key-style-group">
+      <legend class="key-style-group-title">Offline indicator</legend>
+      <div class="key-style-grid">
+        <div class="row color-row"><input type="color" id="offline-pill-text-color" /><label for="offline-pill-text-color" title="Text color">Text color</label></div>
+        <div class="row color-row"><input type="color" id="offline-pill-fill-color" /><label for="offline-pill-fill-color" title="Fill">Fill</label></div>
+        <div class="row"><label for="offline-pill-text-opacity" title="Text opacity">Text opacity</label><input type="range" id="offline-pill-text-opacity" min="0" max="1" step="0.05" /><input class="val" id="offline-pill-text-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="offline-pill-fill-opacity" title="Fill opacity">Fill opacity</label><input type="range" id="offline-pill-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="offline-pill-fill-opacity-val" inputmode="decimal" /></div>
+        <div class="row color-row"><input type="color" id="offline-pill-border-color" /><label for="offline-pill-border-color" title="Border color">Border color</label></div>
+        <div class="row"><label for="offline-pill-border-width" title="Border thickness">Border thickness</label><input type="range" id="offline-pill-border-width" min="0" max="5" step="0.5" /><input class="val" id="offline-pill-border-width-val" inputmode="decimal" /></div>
+        <div class="row"><label for="offline-pill-border-opacity" title="Border opacity">Border opacity</label><input type="range" id="offline-pill-border-opacity" min="0" max="1" step="0.05" /><input class="val" id="offline-pill-border-opacity-val" inputmode="decimal" /></div>
+      </div>
+      <div class="font-group"><div class="font-title">Text</div><div class="font-inline-row"><label for="offline-font-family" title="Font">Font<input type="text" id="offline-font-family" list="font-families" placeholder="System default" /></label><label for="offline-font-size" title="Size">Size<select id="offline-font-size"><option value="8">8 px</option><option value="9">9 px</option><option value="10">10 px</option><option value="11">11 px</option><option value="12">12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option><option value="17">17 px</option><option value="18">18 px</option><option value="19">19 px</option><option value="20">20 px</option><option value="21">21 px</option><option value="22">22 px</option><option value="23">23 px</option><option value="24">24 px</option></select></label><span>Style<span class="font-style-buttons"><button type="button" data-font-style="offline" data-style="bold"><b>B</b></button><button type="button" data-font-style="offline" data-style="italic"><i>I</i></button></span></span></div></div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Background</legend>
       <div class="key-style-grid">
-        <div class="row color-row"><input type="color" id="bg-color" /><label for="bg-color">Background</label></div>
-        <div class="row"><label for="opacity">Background opacity</label><input type="range" id="opacity" min="0" max="1" step="0.05" /><input class="val" id="opacity-val" inputmode="decimal" aria-label="Background opacity value" /></div>
+        <div class="row color-row"><input type="color" id="bg-color" /><label for="bg-color" title="Background">Background</label></div>
+        <div class="row"><label for="opacity" title="Background opacity">Background opacity</label><input type="range" id="opacity" min="0" max="1" step="0.05" /><input class="val" id="opacity-val" inputmode="decimal" aria-label="Background opacity value" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Outlines</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="base-outline-enabled">Show layer outline</label><input type="checkbox" id="base-outline-enabled" /></div>
-        <div class="row"><label for="grab-outline-enabled">Show grab outline</label><input type="checkbox" id="grab-outline-enabled" /></div>
-        <div class="row color-row"><input type="color" id="base-outline-color" /><label for="base-outline-color">Layer outline color</label></div>
-        <div class="row color-row"><input type="color" id="grab-outline-color" /><label for="grab-outline-color">Grab outline color</label></div>
-        <div class="row"><label for="base-outline-opacity">Layer outline opacity</label><input type="range" id="base-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="base-outline-opacity-val" inputmode="decimal" /></div>
-        <div class="row"><label for="grab-outline-opacity">Grab outline opacity</label><input type="range" id="grab-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="grab-outline-opacity-val" inputmode="decimal" /></div>
-        <div class="row"><label for="base-outline-width">Layer outline thickness</label><input type="range" id="base-outline-width" min="0" max="5" step="0.5" /><input class="val" id="base-outline-width-val" inputmode="decimal" /></div>
-        <div class="row"><label for="grab-outline-width">Grab outline thickness</label><input type="range" id="grab-outline-width" min="0" max="5" step="0.5" /><input class="val" id="grab-outline-width-val" inputmode="decimal" /></div>
+        <div class="row"><label for="base-outline-enabled" title="Show layer outline">Show layer outline</label><input type="checkbox" id="base-outline-enabled" /></div>
+        <div class="row"><label for="grab-outline-enabled" title="Show grab outline">Show grab outline</label><input type="checkbox" id="grab-outline-enabled" /></div>
+        <div class="row color-row"><input type="color" id="base-outline-color" /><label for="base-outline-color" title="Layer outline color">Layer outline color</label></div>
+        <div class="row color-row"><input type="color" id="grab-outline-color" /><label for="grab-outline-color" title="Grab outline color">Grab outline color</label></div>
+        <div class="row"><label for="base-outline-opacity" title="Layer outline opacity">Layer outline opacity</label><input type="range" id="base-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="base-outline-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="grab-outline-opacity" title="Grab outline opacity">Grab outline opacity</label><input type="range" id="grab-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="grab-outline-opacity-val" inputmode="decimal" /></div>
+        <div class="row"><label for="base-outline-width" title="Layer outline thickness">Layer outline thickness</label><input type="range" id="base-outline-width" min="0" max="5" step="0.5" /><input class="val" id="base-outline-width-val" inputmode="decimal" /></div>
+        <div class="row"><label for="grab-outline-width" title="Grab outline thickness">Grab outline thickness</label><input type="range" id="grab-outline-width" min="0" max="5" step="0.5" /><input class="val" id="grab-outline-width-val" inputmode="decimal" /></div>
       </div>
     </fieldset>
     <fieldset class="key-style-group">
       <legend class="key-style-group-title">Position</legend>
       <div class="key-style-grid">
-        <div class="row"><label for="keyboard-halves-distance">Keyboard halves distance</label><input type="range" id="keyboard-halves-distance" min="0.25" max="20" step="0.05" /><input class="val" id="keyboard-halves-distance-val" inputmode="decimal" aria-label="Keyboard halves distance value" /></div>
-        <div class="row"><label for="keyboard-halves-rotation">Keyboard halves rotation</label><input type="range" id="keyboard-halves-rotation" min="-15" max="15" step="0.5" /><input class="val" id="keyboard-halves-rotation-val" inputmode="decimal" aria-label="Keyboard halves rotation value" /></div>
+        <div class="row"><label for="keyboard-halves-distance" title="Keyboard halves distance">Keyboard halves distance</label><input type="range" id="keyboard-halves-distance" min="0.25" max="20" step="0.05" /><input class="val" id="keyboard-halves-distance-val" inputmode="decimal" aria-label="Keyboard halves distance value" /></div>
+        <div class="row"><label for="keyboard-halves-rotation" title="Keyboard halves rotation">Keyboard halves rotation</label><input type="range" id="keyboard-halves-rotation" min="-15" max="15" step="0.5" /><input class="val" id="keyboard-halves-rotation-val" inputmode="decimal" aria-label="Keyboard halves rotation value" /></div>
       </div>
     </fieldset>
   </div>
@@ -367,24 +393,18 @@
   <div class="card" data-tab-section="layout">
     <div class="card-section-title">Interaction</div>
     <div class="row">
-      <label for="record">Grab hotkey</label>
+      <label for="record" title="Grab hotkey">Grab hotkey</label>
       <span id="combo-display"></span>
       <button id="record">Record</button>
     </div>
     <div class="row">
       <span class="hint" id="record-hint">Hold to move and resize the overlay</span>
     </div>
-    <div class="row">
-      <label for="toggle-macro-record">Toggle overlay macro</label>
-      <span><span id="toggle-macro-display" class="hint">Not configured</span> <button id="toggle-macro-record" type="button">Record</button> <button id="toggle-macro-stop" type="button" disabled>Stop</button></span>
-    </div>
-    <div class="row"><span class="hint">Record up to 64 physical presses in order; leave less than one second between presses when triggering it. Holding a key adds one press.</span></div>
   </div>
 
   <div class="card" data-tab-section="layout">
     <div class="card-section-title">Overlay position</div>
     <div class="row">
-      <label>Overlay position</label>
       <span class="position-actions">
         <button class="icon-button" id="center-horizontal" type="button" aria-label="Center horizontally" title="Center horizontally">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v5M12 16v5"/><rect x="5" y="8" width="14" height="8" rx="1.5"/></svg>
@@ -392,10 +412,10 @@
         <button class="icon-button" id="center-vertical" type="button" aria-label="Center vertically" title="Center vertically">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5M16 12h5"/><rect x="8" y="5" width="8" height="14" rx="1.5"/></svg>
         </button>
-        <button class="icon-button" id="align-top" type="button" aria-label="Align to top" title="Align to top">
+        <button class="icon-button" id="align-top" type="button" aria-label="Align top" title="Align top">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16"/><rect x="6" y="8" width="12" height="9" rx="1.5"/></svg>
         </button>
-        <button class="icon-button" id="align-bottom" type="button" aria-label="Align to bottom" title="Align to bottom">
+        <button class="icon-button" id="align-bottom" type="button" aria-label="Align bottom" title="Align bottom">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><rect x="6" y="7" width="12" height="9" rx="1.5"/></svg>
         </button>
       </span>
@@ -407,9 +427,14 @@
   </div>
   <div class="card" data-tab-section="layout">
     <div class="card-section-title">Toggle overlay</div>
-    <div class="row"><label for="hide-side">Hidden edge</label><select id="hide-side"><option value="left">Left</option><option value="right">Right</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
-    <div class="row"><label for="hide-reveal">Visible when hidden</label><input type="range" id="hide-reveal" min="0" max="1" step="0.01" /><input class="val" id="hide-reveal-val" inputmode="decimal" /></div>
-    <div class="row"><label for="hide-animation-ms">Hide/show animation speed</label><input type="range" id="hide-animation-ms" min="0" max="1000" step="20" /><input class="val" id="hide-animation-ms-val" inputmode="decimal" /></div>
+    <div class="row"><label for="hide-side" title="Hidden edge">Hidden edge</label><select id="hide-side"><option value="left">Left</option><option value="right">Right</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
+    <div class="row"><label for="hide-reveal" title="Visible when hidden">Visible when hidden</label><input type="range" id="hide-reveal" min="0" max="1" step="0.01" /><input class="val" id="hide-reveal-val" inputmode="decimal" /></div>
+    <div class="row"><label for="hide-animation-ms" title="Hide/show animation speed">Hide/show animation speed</label><input type="range" id="hide-animation-ms" min="0" max="1000" step="20" /><input class="val" id="hide-animation-ms-val" inputmode="decimal" /></div>
+    <div class="row">
+      <label for="toggle-macro-record" title="Macro trigger">Macro trigger</label>
+      <span><span id="toggle-macro-display" class="hint">Not configured</span> <button id="toggle-macro-record" type="button">Record</button> <button id="toggle-macro-stop" type="button" disabled>Stop</button></span>
+    </div>
+    <div class="row"><span class="hint">Record up to 64 physical presses in order; leave less than one second between presses when triggering it. Holding a key adds one press.</span></div>
   </div>
 
   <h2 data-tab-section="layout">Settings data</h2>
@@ -423,7 +448,12 @@
   </main>
 
   <datalist id="font-families">
-    <option value="Menlo"></option><option value="Monaco"></option><option value="Helvetica Neue"></option><option value="Courier New"></option>
+    <option value="SF Pro Display"></option><option value="SF Pro Text"></option><option value="SF Mono"></option>
+    <option value="Menlo"></option><option value="Monaco"></option><option value="Helvetica Neue"></option><option value="Helvetica"></option>
+    <option value="Avenir Next"></option><option value="Futura"></option><option value="Gill Sans"></option><option value="Optima"></option>
+    <option value="Baskerville"></option><option value="Georgia"></option><option value="Palatino"></option><option value="Times New Roman"></option>
+    <option value="American Typewriter"></option><option value="Chalkboard SE"></option><option value="Noteworthy"></option>
+    <option value="Courier"></option><option value="Courier New"></option><option value="Arial"></option>
   </datalist>
   <div id="reset-dialog" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title">
