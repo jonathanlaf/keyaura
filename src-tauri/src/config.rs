@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+/// clamp()'s upper bound for key_shadow_distance / pressed_key_shadow_distance.
+pub const MAX_SHADOW_DISTANCE: f64 = 20.0;
+/// clamp()'s upper bound for key_shadow_diffusion / pressed_key_shadow_diffusion.
+pub const MAX_SHADOW_DIFFUSION: f64 = 30.0;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WindowRect {
     pub x: f64,
@@ -17,6 +22,7 @@ pub struct Config {
     pub oryx_revision: String,
     pub opacity: f64,
     pub char_opacity: f64,
+    pub pressed_char_opacity: f64,
     pub border_opacity: f64,
     pub border_width: f64,
     pub grab_combo: Vec<String>,
@@ -57,6 +63,20 @@ pub struct Config {
     pub pill_border_radius: f64,
     pub layer_pill_border_radius: f64,
     pub offline_pill_border_radius: f64,
+    pub layer_pill_text_color: String,
+    pub layer_pill_text_opacity: f64,
+    pub layer_pill_fill_color: String,
+    pub layer_pill_fill_opacity: f64,
+    pub layer_pill_border_color: String,
+    pub layer_pill_border_opacity: f64,
+    pub layer_pill_border_width: f64,
+    pub offline_pill_text_color: String,
+    pub offline_pill_text_opacity: f64,
+    pub offline_pill_fill_color: String,
+    pub offline_pill_fill_opacity: f64,
+    pub offline_pill_border_color: String,
+    pub offline_pill_border_opacity: f64,
+    pub offline_pill_border_width: f64,
     pub show_key_shadows: bool,
     pub show_pressed_key_shadow: bool,
     pub key_shadow_color: String,
@@ -97,6 +117,10 @@ pub struct Config {
     pub layer_name_font_size: f64,
     pub layer_name_font_bold: bool,
     pub layer_name_font_italic: bool,
+    pub offline_font_family: String,
+    pub offline_font_size: f64,
+    pub offline_font_bold: bool,
+    pub offline_font_italic: bool,
     pub font_ligatures: bool,
     pub window_by_monitor: HashMap<String, WindowRect>,
     pub last_monitor: Option<String>,
@@ -113,6 +137,7 @@ impl Default for Config {
             oryx_revision: "latest".into(),
             opacity: 0.85,
             char_opacity: 1.0,
+            pressed_char_opacity: 1.0,
             border_opacity: 0.35,
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
@@ -151,6 +176,20 @@ impl Default for Config {
             pill_border_radius: 999.0,
             layer_pill_border_radius: 999.0,
             offline_pill_border_radius: 999.0,
+            layer_pill_text_color: "#ffffff".into(),
+            layer_pill_text_opacity: 1.0,
+            layer_pill_fill_color: "#ffffff".into(),
+            layer_pill_fill_opacity: 0.0,
+            layer_pill_border_color: "#ffffff".into(),
+            layer_pill_border_opacity: 0.35,
+            layer_pill_border_width: 1.0,
+            offline_pill_text_color: "#ffffff".into(),
+            offline_pill_text_opacity: 1.0,
+            offline_pill_fill_color: "#d92c2c".into(),
+            offline_pill_fill_opacity: 1.0,
+            offline_pill_border_color: "#ffffff".into(),
+            offline_pill_border_opacity: 0.65,
+            offline_pill_border_width: 1.0,
             show_key_shadows: false,
             show_pressed_key_shadow: true,
             key_shadow_color: "#ffffff".into(),
@@ -193,6 +232,10 @@ impl Default for Config {
             layer_name_font_size: 11.0,
             layer_name_font_bold: false,
             layer_name_font_italic: false,
+            offline_font_family: "".into(),
+            offline_font_size: 11.0,
+            offline_font_bold: true,
+            offline_font_italic: false,
             font_ligatures: true,
             window_by_monitor: HashMap::new(),
             last_monitor: None,
@@ -272,10 +315,17 @@ impl Config {
             pressed_key_shadow_color,
             base_outline_color,
             grab_outline_color,
-            heatmap_color
+            heatmap_color,
+            layer_pill_text_color,
+            layer_pill_fill_color,
+            layer_pill_border_color,
+            offline_pill_text_color,
+            offline_pill_fill_color,
+            offline_pill_border_color
         );
         self.opacity = self.opacity.clamp(0.0, 1.0);
         self.char_opacity = self.char_opacity.clamp(0.2, 1.0);
+        self.pressed_char_opacity = self.pressed_char_opacity.clamp(0.2, 1.0);
         self.border_opacity = self.border_opacity.clamp(0.0, 1.0);
         self.border_width = self.border_width.clamp(0.0, 5.0);
         self.key_fill_opacity = self.key_fill_opacity.clamp(0.0, 1.0);
@@ -294,12 +344,20 @@ impl Config {
         self.pill_border_radius = self.pill_border_radius.clamp(0.0, 999.0);
         self.layer_pill_border_radius = self.layer_pill_border_radius.clamp(0.0, 999.0);
         self.offline_pill_border_radius = self.offline_pill_border_radius.clamp(0.0, 999.0);
+        self.layer_pill_text_opacity = self.layer_pill_text_opacity.clamp(0.0, 1.0);
+        self.layer_pill_fill_opacity = self.layer_pill_fill_opacity.clamp(0.0, 1.0);
+        self.layer_pill_border_opacity = self.layer_pill_border_opacity.clamp(0.0, 1.0);
+        self.layer_pill_border_width = self.layer_pill_border_width.clamp(0.0, 5.0);
+        self.offline_pill_text_opacity = self.offline_pill_text_opacity.clamp(0.0, 1.0);
+        self.offline_pill_fill_opacity = self.offline_pill_fill_opacity.clamp(0.0, 1.0);
+        self.offline_pill_border_opacity = self.offline_pill_border_opacity.clamp(0.0, 1.0);
+        self.offline_pill_border_width = self.offline_pill_border_width.clamp(0.0, 5.0);
         self.key_shadow_opacity = self.key_shadow_opacity.clamp(0.0, 1.0);
         self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
-        self.key_shadow_distance = self.key_shadow_distance.clamp(0.0, 20.0);
-        self.pressed_key_shadow_distance = self.pressed_key_shadow_distance.clamp(0.0, 20.0);
-        self.key_shadow_diffusion = self.key_shadow_diffusion.clamp(0.0, 30.0);
-        self.pressed_key_shadow_diffusion = self.pressed_key_shadow_diffusion.clamp(0.0, 30.0);
+        self.key_shadow_distance = self.key_shadow_distance.clamp(0.0, MAX_SHADOW_DISTANCE);
+        self.pressed_key_shadow_distance = self.pressed_key_shadow_distance.clamp(0.0, MAX_SHADOW_DISTANCE);
+        self.key_shadow_diffusion = self.key_shadow_diffusion.clamp(0.0, MAX_SHADOW_DIFFUSION);
+        self.pressed_key_shadow_diffusion = self.pressed_key_shadow_diffusion.clamp(0.0, MAX_SHADOW_DIFFUSION);
         self.alternate_char_opacity = self.alternate_char_opacity.clamp(0.2, 1.0);
         self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
         self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);
@@ -313,6 +371,7 @@ impl Config {
         self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
         self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
         self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
+        self.offline_font_size = self.offline_font_size.clamp(8.0, 24.0);
         self.settings_window_width = self.settings_window_width.clamp(680.0, 1600.0);
         self.settings_window_height = self.settings_window_height.clamp(560.0, 1200.0);
     }

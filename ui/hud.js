@@ -1,4 +1,4 @@
-import { keyRects, boardUnits } from './geometry.mjs';
+import { keyRects, boardUnits, rotatedBoardFootprint } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
 import { LAYER_ACTIONS } from './layer-actions.mjs';
 import { Heatmap, heatmapFill } from './heatmap.mjs';
@@ -105,9 +105,12 @@ function decorateAction(element, slotName, slot, secondary = false) {
 function computeLayout(config) {
   const pad = config.padding ?? 10;
   const units = boardUnits(config.keyboard_halves_distance ?? 1.6);
+  // Each half pivots around its own center. Account for the vertical span that
+  // enters the horizontal footprint so an edge remains visible at zero padding.
+  const { w: rotatedWidth, h: rotatedHeight } = rotatedBoardFootprint(units.w, config.keyboard_halves_rotation ?? 0);
   const availW = window.innerWidth - 2 * pad;
   const availH = window.innerHeight - 2 * pad;
-  const unit = Math.max(8, Math.min(availW / units.w, availH / units.h));
+  const unit = Math.max(8, Math.min(availW / rotatedWidth, availH / rotatedHeight));
   // Center the key grid on the board background.
   const offX = (window.innerWidth - units.w * unit) / 2;
   const offY = (window.innerHeight - units.h * unit) / 2;
@@ -243,12 +246,20 @@ function applyTheme(config) {
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
+  st.setProperty('--pressed-char-opacity', config.pressed_char_opacity ?? config.char_opacity);
   st.setProperty('--alternate-opacity', config.alternate_char_opacity ?? config.char_opacity ?? 1);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
-  st.setProperty('--layer-name-color', config.text_color);
-  st.setProperty('--layer-name-border', hexToRgba(config.border_color, config.border_opacity));
-  st.setProperty('--layer-name-opacity', config.char_opacity);
+  st.setProperty('--layer-pill-text-color', config.layer_pill_text_color ?? config.text_color);
+  st.setProperty('--layer-pill-text-opacity', config.layer_pill_text_opacity ?? config.char_opacity);
+  st.setProperty('--layer-pill-fill', hexToRgba(config.layer_pill_fill_color ?? config.key_fill_color, config.layer_pill_fill_opacity ?? config.key_fill_opacity));
+  st.setProperty('--layer-pill-border', hexToRgba(config.layer_pill_border_color ?? config.border_color, config.layer_pill_border_opacity ?? config.border_opacity));
+  st.setProperty('--layer-pill-border-width', `${config.layer_pill_border_width ?? 1}px`);
+  st.setProperty('--offline-pill-text-color', config.offline_pill_text_color ?? '#ffffff');
+  st.setProperty('--offline-pill-text-opacity', config.offline_pill_text_opacity ?? 1);
+  st.setProperty('--offline-pill-fill', hexToRgba(config.offline_pill_fill_color ?? '#d92c2c', config.offline_pill_fill_opacity ?? 1));
+  st.setProperty('--offline-pill-border', hexToRgba(config.offline_pill_border_color ?? '#ffffff', config.offline_pill_border_opacity ?? 0.65));
+  st.setProperty('--offline-pill-border-width', `${config.offline_pill_border_width ?? 1}px`);
   st.setProperty('--shift-color', config.shift_color ?? '#ffffff');
   st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
@@ -286,6 +297,7 @@ function applyTheme(config) {
   fontVars(st, 'key', config);
   fontVars(st, 'legend', config);
   fontVars(st, 'layer_name', config);
+  fontVars(st, 'offline', config);
   refreshHeatmap();
 }
 
@@ -425,13 +437,7 @@ async function main() {
     refreshHeatmap();
     const geometryChanged = previous?.keyboard_halves_distance !== lastConfig.keyboard_halves_distance
       || previous?.keyboard_halves_rotation !== lastConfig.keyboard_halves_rotation
-      || previous?.padding !== lastConfig.padding
-      || previous?.show_key_shadows !== lastConfig.show_key_shadows
-      || previous?.key_shadow_distance !== lastConfig.key_shadow_distance
-      || previous?.key_shadow_diffusion !== lastConfig.key_shadow_diffusion
-      || previous?.show_pressed_key_shadow !== lastConfig.show_pressed_key_shadow
-      || previous?.pressed_key_shadow_distance !== lastConfig.pressed_key_shadow_distance
-      || previous?.pressed_key_shadow_diffusion !== lastConfig.pressed_key_shadow_diffusion;
+      || previous?.padding !== lastConfig.padding;
     const needsRender = !previous || ['use_oryx_colors', 'padding', 'key_spacing', 'keyboard_halves_distance', 'show_heatmap', 'show_heatmap_counts', 'heatmap_color', 'heatmap_peak', 'key_fill_opacity',
       'layer_pill_horizontal', 'layer_pill_vertical', 'offline_pill_horizontal', 'offline_pill_vertical', 'layer_indicator']
       .some(field => previous[field] !== lastConfig[field]);

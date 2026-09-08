@@ -79,7 +79,7 @@ body.show-shift-icons .shift-icon {
   height: calc(var(--key-unit, 62px) * 0.12325 * var(--shift-icon-scale, 1)); vertical-align: baseline;
 }
 .shift-icon { --action-icon: url('icons/shift.svg'); margin-right: 0.15em; }
-#badge { position: absolute; top: 8%; left: 50%; transform: translate(-50%, -50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: var(--layer-pill-border-radius, 999px); background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
+#badge { position: absolute; top: 8%; left: 50%; transform: translate(-50%, -50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-pill-text-color, #fff); opacity: var(--layer-pill-text-opacity, 1); padding: 3px 10px; border-radius: var(--layer-pill-border-radius, 999px); background: var(--layer-pill-fill, transparent); border: var(--layer-pill-border-width, 1px) solid var(--layer-pill-border, rgba(255,255,255,0.35)); white-space: nowrap; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
@@ -88,8 +88,8 @@ body.show-shift-icons .shift-icon {
   color: #fff; background: rgba(160, 30, 30, .9); border-radius: 6px; font-size: 12px; }
 body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
 body.offline .layer { opacity: 0.4; }
-body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
-#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: var(--offline-pill-border-radius, 999px); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
+body.offline #badge { opacity: calc(var(--layer-pill-text-opacity, 1) * 0.4); }
+#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: var(--offline-pill-border-radius, 999px); font-family: var(--offline-font-family, -apple-system), sans-serif; font-size: var(--offline-font-size, 11px); font-weight: var(--offline-font-weight, 700); font-style: var(--offline-font-style, normal); font-variant-ligatures: var(--offline-font-ligatures, common-ligatures); letter-spacing: 0.04em; color: var(--offline-pill-text-color, #fff); opacity: var(--offline-pill-text-opacity, 1); background: var(--offline-pill-fill, #d92c2c); border: var(--offline-pill-border-width, 1px) solid var(--offline-pill-border, rgba(255,255,255,0.65)); }
 #offline-indicator[hidden] { display: none; }
 .key.thumb-left { transform: rotate(15deg); transform-origin: center; }
 .key.thumb-right { transform: rotate(-15deg); transform-origin: center; }
@@ -190,6 +190,8 @@ body .key.pressed, body.show-heatmap .key.pressed { background: var(--pressed-ke
   font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1));
   font-variant-ligatures: var(--legend-font-ligatures, common-ligatures);
 }
+.key.pressed .tap { opacity: var(--pressed-char-opacity, 1); }
+.key.pressed .hold, .key.pressed .dtap, .key.pressed .thold, .key.pressed .shift { opacity: calc(0.75 * var(--pressed-char-opacity, 1)); }
 #badge {
   font-family: var(--layer-name-font-family, -apple-system), sans-serif;
   font-weight: var(--layer-name-font-weight, 400);

@@ -66,27 +66,40 @@ pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRe
     }
 }
 
+/// Board footprint (width, height in board units) after accounting for the
+/// rotation applied to each keyboard half. Mirrors ui/geometry.mjs's
+/// rotatedBoardFootprint exactly: this side derives the window size needed
+/// for a target render width (on resize), the JS side derives the render
+/// unit from the window's actual current size (on every layout) — both need
+/// the identical trig, computed at different times for different purposes.
+/// A parallel golden-value test lives in each: this file's
+/// rotated_footprint_matches_known_values, and ui/test/geometry.test.mjs's
+/// "matches the Rust rotated footprint" case. If you touch this formula,
+/// update both tests.
+pub(crate) fn rotated_board_footprint(board_width: f64, angle_deg: f64) -> (f64, f64) {
+    let angle = angle_deg.abs().to_radians();
+    let rotated_width = board_width + 2.0 * 6.0 * angle.sin();
+    let rotated_height = 6.0 * (angle.cos() + angle.sin());
+    (rotated_width, rotated_height)
+}
+
 /// Height needed by the rotated keyboard plus the currently enabled glow.
-/// The width remains the user's chosen width; rotation makes the keyboard
-/// taller, so expanding vertically preserves the apparent key size and keeps
-/// the translucent board behind every key rather than clipping it.
+/// Rotation expands the keyboard's footprint both horizontally and vertically.
+/// Use that full footprint when deriving the key unit: otherwise a zero-padding
+/// board scales from the unrotated width and crops its outer keys.
 pub(crate) fn overlay_height_for_width(width: f64, config: &crate::config::Config) -> f64 {
     let content_width = (width - 2.0 * config.padding).max(1.0);
     let board_width = 12.0 + config.keyboard_halves_distance;
-    let angle = config.keyboard_halves_rotation.abs().to_radians();
-    let rotated_height = 6.0 * (angle.cos() + angle.sin());
-    let shadow_extent = [
-        (config.show_key_shadows)
-            .then_some(config.key_shadow_distance + config.key_shadow_diffusion)
-            .unwrap_or(0.0),
-        (config.show_pressed_key_shadow)
-            .then_some(config.pressed_key_shadow_distance + config.pressed_key_shadow_diffusion)
-            .unwrap_or(0.0),
-    ]
-    .into_iter()
-    .fold(0.0_f64, f64::max);
+    let (rotated_width, rotated_height) =
+        rotated_board_footprint(board_width, config.keyboard_halves_rotation);
+    // The window should not jump when a shadow is enabled, moved, blurred, or
+    // disabled. Reserve the largest extent permitted by Settings' clamp()
+    // for every render instead, so this stays in sync if those bounds change.
+    const MAX_SHADOW_EXTENT: f64 =
+        crate::config::MAX_SHADOW_DISTANCE + crate::config::MAX_SHADOW_DIFFUSION;
 
-    (content_width / board_width * rotated_height + 2.0 * (config.padding + shadow_extent + 2.0))
+    (content_width / rotated_width * rotated_height
+        + 2.0 * (config.padding + MAX_SHADOW_EXTENT + 2.0))
         .max(120.0)
 }
 
@@ -654,7 +667,7 @@ pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{overlay_height_for_width, parse_layout_hash};
+    use super::{overlay_height_for_width, parse_layout_hash, rotated_board_footprint};
 
     #[test]
     fn parses_full_url() {
@@ -686,15 +699,38 @@ mod tests {
     }
 
     #[test]
-    fn rotation_and_glow_expand_the_overlay_height() {
+    fn rotation_adjusts_height_while_shadow_settings_do_not() {
         let base = crate::config::Config::default();
         let base_height = overlay_height_for_width(940.0, &base);
         let mut rotated = base.clone();
         rotated.keyboard_halves_rotation = 15.0;
-        assert!(overlay_height_for_width(940.0, &rotated) > base_height);
+        assert_ne!(overlay_height_for_width(940.0, &rotated), base_height);
+        let rotated_height = overlay_height_for_width(940.0, &rotated);
         rotated.show_key_shadows = true;
         rotated.key_shadow_distance = 20.0;
         rotated.key_shadow_diffusion = 30.0;
-        assert!(overlay_height_for_width(940.0, &rotated) > base_height + 40.0);
+        assert_eq!(overlay_height_for_width(940.0, &rotated), rotated_height);
+    }
+
+    #[test]
+    fn rotated_footprint_matches_known_values() {
+        // Golden values shared with ui/test/geometry.test.mjs's "matches the
+        // Rust rotated footprint" test. If either side's trig changes without
+        // the other, one of these two tests should fail.
+        let close = |actual: f64, expected: f64| {
+            assert!((actual - expected).abs() < 1e-9, "{actual} != {expected}");
+        };
+
+        let (flat_w, flat_h) = rotated_board_footprint(13.6, 0.0);
+        close(flat_w, 13.6);
+        close(flat_h, 6.0);
+
+        let (mid_w, mid_h) = rotated_board_footprint(13.6, 7.5);
+        close(mid_w, 15.166314306640619);
+        close(mid_h, 6.731826321563172);
+
+        let (max_w, max_h) = rotated_board_footprint(13.6, 15.0);
+        close(max_w, 16.705828541230247);
+        close(max_h, 7.348469228349534);
     }
 }

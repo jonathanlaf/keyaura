@@ -1,4 +1,5 @@
 import { isNewerVersion } from './release-version.mjs';
+import { boardUnits, rotatedBoardFootprint } from './geometry.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen, emit } = window.__TAURI__.event;
@@ -392,7 +393,7 @@ fetch('https://api.github.com/repos/jonathanlaf/keyaura/releases/latest', { head
     }
   }).catch(() => {});
 
-for (const prefix of ['key', 'legend', 'layer_name']) {
+for (const prefix of ['key', 'legend', 'layer_name', 'offline']) {
   const family = $(`${prefix.replace('_', '-')}-font-family`);
   if (family) family.value = cfg[`${prefix}_font_family`] || '';
 }
@@ -422,6 +423,12 @@ $('pressed-key-shadow-color').value = cfg.pressed_key_shadow_color;
 $('heatmap-color').value = cfg.heatmap_color;
 $('base-outline-color').value = cfg.base_outline_color;
 $('grab-outline-color').value = cfg.grab_outline_color;
+$('layer-pill-text-color').value = cfg.layer_pill_text_color;
+$('layer-pill-fill-color').value = cfg.layer_pill_fill_color;
+$('layer-pill-border-color').value = cfg.layer_pill_border_color;
+$('offline-pill-text-color').value = cfg.offline_pill_text_color;
+$('offline-pill-fill-color').value = cfg.offline_pill_fill_color;
+$('offline-pill-border-color').value = cfg.offline_pill_border_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
 $('start-hidden').checked = cfg.start_hidden;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
@@ -491,6 +498,12 @@ bind('pressed-key-shadow-color', 'pressed_key_shadow_color');
 bind('heatmap-color', 'heatmap_color');
 bind('base-outline-color', 'base_outline_color');
 bind('grab-outline-color', 'grab_outline_color');
+bind('layer-pill-text-color', 'layer_pill_text_color');
+bind('layer-pill-fill-color', 'layer_pill_fill_color');
+bind('layer-pill-border-color', 'layer_pill_border_color');
+bind('offline-pill-text-color', 'offline_pill_text_color');
+bind('offline-pill-fill-color', 'offline_pill_fill_color');
+bind('offline-pill-border-color', 'offline_pill_border_color');
 
 // Numeric settings: slider + manual text entry, kept in sync both ways.
 // Every keystroke commits immediately (like the slider) so a value typed
@@ -566,9 +579,15 @@ async function refreshFontSizeLabels() {
   try {
     const { width, height } = await invoke('get_overlay_geometry');
     const padding = Number(cfg.padding ?? 10);
+    // Mirror hud.js's computeLayout: the overlay's actual window height is
+    // inflated by the backend to fit the rotated board (app.rs's
+    // overlay_height_for_width), so the preview unit must divide by that same
+    // rotated footprint or these labels drift from what's actually rendered.
+    const units = boardUnits(Number(cfg.keyboard_halves_distance ?? 1.6));
+    const { w: rotatedWidth, h: rotatedHeight } = rotatedBoardFootprint(units.w, Number(cfg.keyboard_halves_rotation) || 0);
     const unit = Math.max(8, Math.min(
-      (Number(width) - 2 * padding) / (12 + Number(cfg.keyboard_halves_distance ?? 1.6)),
-      (Number(height) - 2 * padding) / 6,
+      (Number(width) - 2 * padding) / rotatedWidth,
+      (Number(height) - 2 * padding) / rotatedHeight,
     ));
     for (const [id, ratio] of [['key-font-size', 0.258], ['legend-font-size', 0.145]]) {
       for (const option of $(id).options) {
@@ -582,6 +601,7 @@ async function refreshFontSizeLabels() {
 for (const [id, field] of [
   ['opacity', 'opacity'],
   ['char-opacity', 'char_opacity'],
+  ['pressed-char-opacity', 'pressed_char_opacity'],
   ['alternate-char-opacity', 'alternate_char_opacity'],
   ['border-opacity', 'border_opacity'],
   ['key-fill-opacity', 'key_fill_opacity'],
@@ -600,6 +620,14 @@ for (const [id, field] of [
   ['key-border-radius', 'key_border_radius'],
   ['layer-pill-border-radius', 'layer_pill_border_radius'],
   ['offline-pill-border-radius', 'offline_pill_border_radius'],
+  ['layer-pill-text-opacity', 'layer_pill_text_opacity'],
+  ['layer-pill-fill-opacity', 'layer_pill_fill_opacity'],
+  ['layer-pill-border-opacity', 'layer_pill_border_opacity'],
+  ['layer-pill-border-width', 'layer_pill_border_width'],
+  ['offline-pill-text-opacity', 'offline_pill_text_opacity'],
+  ['offline-pill-fill-opacity', 'offline_pill_fill_opacity'],
+  ['offline-pill-border-opacity', 'offline_pill_border_opacity'],
+  ['offline-pill-border-width', 'offline_pill_border_width'],
   ['key-shadow-opacity', 'key_shadow_opacity'],
   ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
   ['key-shadow-distance', 'key_shadow_distance'],
@@ -620,10 +648,11 @@ for (const [id, field] of [
   ['key-font-size', 'key_font_size'],
   ['legend-font-size', 'legend_font_size'],
   ['layer-name-font-size', 'layer_name_font_size'],
+  ['offline-font-size', 'offline_font_size'],
 ]) bindNumericSelect(id, field);
 await refreshFontSizeLabels();
 
-for (const prefix of ['key', 'legend', 'layer_name']) {
+for (const prefix of ['key', 'legend', 'layer_name', 'offline']) {
   const id = `${prefix.replace('_', '-')}-font-family`;
   $(id).addEventListener('change', (e) => commit(`${prefix}_font_family`, e.target.value));
 }
@@ -673,8 +702,23 @@ await listen('heatmap-stats', (event) => {
 try { await emit('heatmap-request'); } catch {}
 $('key-shadows').addEventListener('change', (e) => commit('show_key_shadows', e.target.checked));
 $('pressed-key-shadow').addEventListener('change', (e) => commit('show_pressed_key_shadow', e.target.checked));
-$('key-shadow-position').addEventListener('change', (e) => commit('key_shadow_position', e.target.value));
-$('pressed-key-shadow-position').addEventListener('change', (e) => commit('pressed_key_shadow_position', e.target.value));
+const syncShadowDistance = (prefix) => {
+  const isGlow = $(`${prefix}-shadow-position`).value === 'glow';
+  const slider = $(`${prefix}-shadow-distance`);
+  const value = $(`${prefix}-shadow-distance-val`);
+  slider.disabled = isGlow;
+  value.disabled = isGlow;
+  const explanation = isGlow ? 'Distance is not used by a glow.' : '';
+  slider.title = explanation;
+  value.title = explanation;
+};
+for (const prefix of ['key', 'pressed-key']) {
+  syncShadowDistance(prefix);
+  $(`${prefix}-shadow-position`).addEventListener('change', (e) => {
+    syncShadowDistance(prefix);
+    commit(`${prefix.replace('-', '_')}_shadow_position`, e.target.value);
+  });
+}
 $('base-outline-enabled').addEventListener('change', (e) => commit('base_outline_enabled', e.target.checked));
 $('grab-outline-enabled').addEventListener('change', (e) => commit('grab_outline_enabled', e.target.checked));
 $('hide-side').addEventListener('change', (e) => commit('hide_side', e.target.value));
@@ -695,6 +739,11 @@ await listen('config-changed', (event) => {
   if (rotation && rotationValue) {
     rotation.value = cfg.keyboard_halves_rotation;
     rotationValue.value = cfg.keyboard_halves_rotation;
+  }
+  for (const prefix of ['key', 'pressed-key']) {
+    const select = $(`${prefix}-shadow-position`);
+    if (select) select.value = cfg[`${prefix.replace('-', '_')}_shadow_position`] ?? 'glow';
+    syncShadowDistance(prefix);
   }
   refreshFontSizeLabels();
 });

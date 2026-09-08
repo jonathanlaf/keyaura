@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { keyRects, boardUnits } from '../geometry.mjs';
+import { keyRects, boardUnits, rotatedBoardFootprint } from '../geometry.mjs';
 
 test('52 keys', () => {
   assert.equal(keyRects().length, 52);
@@ -35,6 +35,25 @@ test('rows are top to bottom within a half', () => {
   const r = keyRects();
   assert.ok(r[0].y < r[6].y && r[6].y < r[12].y && r[12].y < r[18].y);
   assert.ok(r[24].y > r[18].y, 'thumbs below bottom row');
+});
+
+test('matches the Rust rotated footprint', () => {
+  // Golden values shared with src-tauri/src/app.rs's
+  // rotated_footprint_matches_known_values test. If either side's trig
+  // changes without the other, one of these two tests should catch it.
+  const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} !== ${expected}`);
+
+  const flat = rotatedBoardFootprint(13.6, 0);
+  close(flat.w, 13.6);
+  close(flat.h, 6.0);
+
+  const mid = rotatedBoardFootprint(13.6, 7.5);
+  close(mid.w, 15.166314306640619);
+  close(mid.h, 6.731826321563172);
+
+  const max = rotatedBoardFootprint(13.6, 15);
+  close(max.w, 16.705828541230247);
+  close(max.h, 7.348469228349534);
 });
 
 test('no overlapping keys', () => {
