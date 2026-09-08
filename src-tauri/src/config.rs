@@ -135,47 +135,47 @@ impl Default for Config {
             // user-entered layout URL anymore.
             oryx_url: String::new(),
             oryx_revision: "latest".into(),
-            opacity: 0.85,
+            opacity: 0.0,
             char_opacity: 1.0,
             pressed_char_opacity: 1.0,
             border_opacity: 0.35,
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             overlay_pinned: false,
-            toggle_macro: Vec::new(),
-            hide_side: "right".into(),
-            hide_reveal: 0.08,
+            toggle_macro: vec![18, 18, 18],
+            hide_side: "bottom".into(),
+            hide_reveal: 0.2,
             hide_animation_ms: 220.0,
             use_oryx_colors: true,
             start_hidden: false,
             show_layer_action_icons: true,
             layer_indicator: "icon".into(),
-            show_shift_icons: true,
-            shift_icon_scale: 1.0,
-            show_alternate_action_icons: true,
-            alternate_action_icon_scale: 1.0,
+            show_shift_icons: false,
+            shift_icon_scale: 1.1,
+            show_alternate_action_icons: false,
+            alternate_action_icon_scale: 0.6,
             show_heatmap: false,
             show_heatmap_counts: false,
-            heatmap_color: "#ff5c5c".into(),
-            heatmap_peak: 20.0,
-            key_fill_color: "#ffffff".into(),
-            key_fill_opacity: 0.0,
-            padding: 10.0,
-            bg_color: "#141418".into(),
+            heatmap_color: "#ff0030".into(),
+            heatmap_peak: 200.0,
+            key_fill_color: "#000000".into(),
+            key_fill_opacity: 0.2,
+            padding: 0.0,
+            bg_color: "#ffffff".into(),
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
             shift_color: "#ffffff".into(),
-            alternate_color: "#ffffff".into(),
+            alternate_color: "#f8fadb".into(),
             border_color: "#ffffff".into(),
-            pressed_key_color: "#7ad7ff".into(),
+            pressed_key_color: "#000000".into(),
             pressed_key_fill_opacity: 0.45,
             pressed_key_border_color: "#7ad7ff".into(),
-            pressed_key_border_opacity: 0.85,
-            pressed_key_border_width: 1.0,
-            key_border_radius: 7.0,
-            pill_border_radius: 999.0,
-            layer_pill_border_radius: 999.0,
-            offline_pill_border_radius: 999.0,
+            pressed_key_border_opacity: 0.5,
+            pressed_key_border_width: 3.5,
+            key_border_radius: 15.0,
+            pill_border_radius: 368.0,
+            layer_pill_border_radius: 368.0,
+            offline_pill_border_radius: 0.0,
             layer_pill_text_color: "#ffffff".into(),
             layer_pill_text_opacity: 1.0,
             layer_pill_fill_color: "#ffffff".into(),
@@ -190,42 +190,42 @@ impl Default for Config {
             offline_pill_border_color: "#ffffff".into(),
             offline_pill_border_opacity: 0.65,
             offline_pill_border_width: 1.0,
-            show_key_shadows: false,
+            show_key_shadows: true,
             show_pressed_key_shadow: true,
-            key_shadow_color: "#ffffff".into(),
-            pressed_key_shadow_color: "#7ad7ff".into(),
-            key_shadow_opacity: 0.25,
-            pressed_key_shadow_opacity: 0.85,
+            key_shadow_color: "#c4bc00".into(),
+            pressed_key_shadow_color: "#ffffff".into(),
+            key_shadow_opacity: 0.45,
+            pressed_key_shadow_opacity: 0.6,
             key_shadow_position: "glow".into(),
             pressed_key_shadow_position: "glow".into(),
-            key_shadow_distance: 2.0,
-            pressed_key_shadow_distance: 4.0,
+            key_shadow_distance: 0.0,
+            pressed_key_shadow_distance: 9.0,
             key_shadow_diffusion: 5.0,
-            pressed_key_shadow_diffusion: 5.0,
+            pressed_key_shadow_diffusion: 30.0,
             alternate_char_opacity: 1.0,
-            key_spacing: 0.06,
-            keyboard_halves_distance: 1.6,
-            keyboard_halves_rotation: 0.0,
+            key_spacing: 0.1,
+            keyboard_halves_distance: 3.25,
+            keyboard_halves_rotation: -15.0,
             layer_pill_horizontal: 50.0,
-            layer_pill_vertical: 8.0,
+            layer_pill_vertical: 33.0,
             offline_pill_horizontal: 50.0,
             offline_pill_vertical: 50.0,
-            settings_window_width: 860.0,
+            settings_window_width: 948.0,
             settings_window_height: 760.0,
-            base_outline_enabled: true,
-            base_outline_color: "#78b4ff".into(),
-            base_outline_opacity: 0.6,
+            base_outline_enabled: false,
+            base_outline_color: "#ff40ff".into(),
+            base_outline_opacity: 0.55,
             base_outline_width: 2.0,
             grab_outline_enabled: true,
             grab_outline_color: "#ffdc78".into(),
-            grab_outline_opacity: 0.9,
-            grab_outline_width: 2.0,
+            grab_outline_opacity: 1.0,
+            grab_outline_width: 1.5,
             key_font_family: "".into(),
-            key_font_size: 1.0,
+            key_font_size: 1.3,
             key_font_bold: false,
             key_font_italic: false,
             legend_font_family: "".into(),
-            legend_font_size: 1.0,
+            legend_font_size: 1.6,
             legend_font_bold: false,
             legend_font_italic: false,
             layer_name_font_family: "".into(),
@@ -465,22 +465,27 @@ mod tests {
     fn default_config_values() {
         let c = Config::default();
         assert!(c.oryx_url.is_empty());
-        assert_eq!(c.opacity, 0.85);
+        assert_eq!(c.opacity, 0.0);
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
+        assert_eq!(c.toggle_macro, vec![18, 18, 18]);
+        assert_eq!(c.hide_side, "bottom");
+        assert_eq!(c.hide_reveal, 0.2);
         assert!(c.use_oryx_colors);
         assert!(c.window_by_monitor.is_empty());
         assert!(c.last_monitor.is_none());
         assert_eq!(c.char_opacity, 1.0);
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
-        assert_eq!(c.bg_color, "#141418");
-        assert_eq!(c.key_fill_opacity, 0.0);
-        assert_eq!(c.padding, 10.0);
+        assert_eq!(c.bg_color, "#ffffff");
+        assert_eq!(c.key_fill_opacity, 0.2);
+        assert_eq!(c.padding, 0.0);
         assert_eq!(c.text_color, "#ffffff");
         assert_eq!(c.legend_color, "#ffffff");
         assert_eq!(c.border_color, "#ffffff");
-        assert_eq!(c.shift_icon_scale, 1.0);
-        assert_eq!(c.alternate_action_icon_scale, 1.0);
+        assert!(!c.show_shift_icons);
+        assert_eq!(c.shift_icon_scale, 1.1);
+        assert!(!c.show_alternate_action_icons);
+        assert_eq!(c.alternate_action_icon_scale, 0.6);
     }
 
     #[test]
@@ -494,7 +499,7 @@ mod tests {
         assert_eq!(c.char_opacity, 1.0);
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
-        assert_eq!(c.bg_color, "#141418");
+        assert_eq!(c.bg_color, "#ffffff");
     }
 
     #[test]
