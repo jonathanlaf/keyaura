@@ -8,6 +8,19 @@ let cfg = await invoke('get_config');
 const appVersion = await invoke('get_app_version');
 await emit('macro-recording', false);
 const $ = (id) => document.getElementById(id);
+
+// Shared shape for a best-effort backend call: log and move on rather than
+// surface an error, for callers where the command failing just means "skip
+// this optional enhancement" (font suggestions, geometry preview, window
+// alignment) rather than something the user needs to see or retry.
+async function tryInvoke(command, args, failureMessage) {
+  try {
+    return await invoke(command, args);
+  } catch (error) {
+    console.warn(`KeyAura: ${failureMessage}:`, error);
+    return undefined;
+  }
+}
 const restoredStatus = sessionStorage.getItem('keyaura-settings-status');
 if (restoredStatus) {
   sessionStorage.removeItem('keyaura-settings-status');
@@ -405,6 +418,37 @@ for (const button of document.querySelectorAll('[data-font-style]')) {
 }
 $('font-ligatures').addEventListener('change', (e) => commit('font_ligatures', e.target.checked));
 
+// Extend the built-in curated font list with every other family actually
+// installed on the system — union, not replace: font backends don't always
+// surface Apple's built-in family names (e.g. "SF Pro Display") the same way
+// the curated list names them, so replacing outright can silently drop
+// entries that used to work. The font-family fields are plain text inputs —
+// the datalist is only an autocomplete hint — so on failure we just leave
+// the static fallback list in place rather than breaking font entry.
+(async () => {
+  const fonts = await tryInvoke('list_system_fonts', undefined, 'could not list system fonts, using built-in font suggestions');
+  if (!fonts?.length) return;
+  const datalist = $('font-families');
+  const curated = [...datalist.options].map((option) => option.value);
+  // Only vet the freshly-scanned names against the webview's actual font
+  // matcher — the curated list was hand-verified already, and font-kit's
+  // family names don't always match what WKWebView's CSS font-family
+  // resolver accepts, so an unverified scanned name could look valid in the
+  // datalist but silently fail to render once picked.
+  const resolvable = document.fonts?.check
+    ? fonts.filter((name) => {
+        try { return document.fonts.check(`12px "${name}"`); }
+        catch { return true; }
+      })
+    : fonts;
+  const merged = [...new Set([...curated, ...resolvable])].sort((a, b) => a.localeCompare(b));
+  datalist.replaceChildren(...merged.map((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    return option;
+  }));
+})();
+
 const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
@@ -576,26 +620,24 @@ const bindNumericSelect = (id, field) => {
   select.addEventListener('change', (event) => commit(field, Number(event.target.value)));
 };
 async function refreshFontSizeLabels() {
-  try {
-    const { width, height } = await invoke('get_overlay_geometry');
-    const padding = Number(cfg.padding ?? 10);
-    // Mirror hud.js's computeLayout: the overlay's actual window height is
-    // inflated by the backend to fit the rotated board (app.rs's
-    // overlay_height_for_width), so the preview unit must divide by that same
-    // rotated footprint or these labels drift from what's actually rendered.
-    const units = boardUnits(Number(cfg.keyboard_halves_distance ?? 1.6));
-    const { w: rotatedWidth, h: rotatedHeight } = rotatedBoardFootprint(units.w, Number(cfg.keyboard_halves_rotation) || 0);
-    const unit = Math.max(8, Math.min(
-      (Number(width) - 2 * padding) / rotatedWidth,
-      (Number(height) - 2 * padding) / rotatedHeight,
-    ));
-    for (const [id, ratio] of [['key-font-size', 0.258], ['legend-font-size', 0.145]]) {
-      for (const option of $(id).options) {
-        option.textContent = `${Math.round(unit * ratio * Number(option.value))} px`;
-      }
+  const geometry = await tryInvoke('get_overlay_geometry', undefined, 'could not calculate current font pixel sizes');
+  if (!geometry) return;
+  const { width, height } = geometry;
+  const padding = Number(cfg.padding ?? 10);
+  // Mirror hud.js's computeLayout: the overlay's actual window height is
+  // inflated by the backend to fit the rotated board (app.rs's
+  // overlay_height_for_width), so the preview unit must divide by that same
+  // rotated footprint or these labels drift from what's actually rendered.
+  const units = boardUnits(Number(cfg.keyboard_halves_distance ?? 1.6));
+  const { w: rotatedWidth, h: rotatedHeight } = rotatedBoardFootprint(units.w, Number(cfg.keyboard_halves_rotation) || 0);
+  const unit = Math.max(8, Math.min(
+    (Number(width) - 2 * padding) / rotatedWidth,
+    (Number(height) - 2 * padding) / rotatedHeight,
+  ));
+  for (const [id, ratio] of [['key-font-size', 0.258], ['legend-font-size', 0.145]]) {
+    for (const option of $(id).options) {
+      option.textContent = `${Math.round(unit * ratio * Number(option.value))} px`;
     }
-  } catch (error) {
-    console.warn('Could not calculate current font pixel sizes:', error);
   }
 }
 for (const [id, field] of [
@@ -832,11 +874,7 @@ for (const type of ['keydown', 'keyup']) {
 }
 
 async function alignWindow(axis) {
-  try {
-    await invoke('align_window', { axis });
-  } catch (err) {
-    console.warn('KeyAura: could not align window:', err);
-  }
+  await tryInvoke('align_window', { axis }, 'could not align window');
 }
 $('center-horizontal').addEventListener('click', () => alignWindow('horizontal'));
 $('center-vertical').addEventListener('click', () => alignWindow('vertical'));

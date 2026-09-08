@@ -202,6 +202,7 @@ fn main() {
             app::export_config,
             app::import_config,
             app::reset_config,
+            app::list_system_fonts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running KeyAura");

@@ -665,9 +665,44 @@ pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
     })
 }
 
+/// Every font family installed on the system, for the Settings font pickers'
+/// datalist. Runs the CoreText/filesystem enumeration on a blocking thread
+/// rather than the calling thread — like every other slow command in this
+/// file (align_window, reset_window_positions, import_config, ...) — since a
+/// plain non-async command here would otherwise stall the app for the
+/// duration of the scan on every Settings window open (nothing caches this).
+/// Filters out macOS's dot-prefixed private/internal families (e.g.
+/// ".AppleSystemUIFont") that font backends surface but aren't meant to be
+/// user-selectable. Falls back to an empty list (logged) on enumeration
+/// failure rather than erroring the whole Settings window — the font-family
+/// inputs are plain text fields, so losing autocomplete suggestions degrades
+/// gracefully instead of breaking anything.
+#[tauri::command]
+pub async fn list_system_fonts() -> Vec<String> {
+    let mut names = match tokio::task::spawn_blocking(|| {
+        font_kit::source::SystemSource::new().all_families()
+    })
+    .await
+    {
+        Ok(Ok(names)) => names,
+        Ok(Err(error)) => {
+            eprintln!("KeyAura: could not list system fonts: {error}");
+            Vec::new()
+        }
+        Err(error) => {
+            eprintln!("KeyAura: font enumeration task panicked: {error}");
+            Vec::new()
+        }
+    };
+    names.retain(|name| !name.starts_with('.'));
+    names.sort();
+    names.dedup();
+    names
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{overlay_height_for_width, parse_layout_hash, rotated_board_footprint};
+    use super::{list_system_fonts, overlay_height_for_width, parse_layout_hash, rotated_board_footprint};
 
     #[test]
     fn parses_full_url() {
@@ -732,5 +767,23 @@ mod tests {
         let (max_w, max_h) = rotated_board_footprint(13.6, 15.0);
         close(max_w, 16.705828541230247);
         close(max_h, 7.348469228349534);
+    }
+
+    #[tokio::test]
+    async fn system_fonts_are_enumerated_and_private_families_are_filtered() {
+        // The sort()/dedup() calls inside list_system_fonts aren't worth
+        // reasserting here — they always run right before the function
+        // returns, so re-checking sortedness/no-duplicates on the result
+        // would only prove the standard library works. What's actually
+        // worth verifying against the real system: the enumeration succeeds
+        // at all (every dev/CI machine this app targets is macOS and ships
+        // system fonts — an empty result would mean SystemSource silently
+        // failed), and the dot-prefixed private-family filter is applied.
+        let names = list_system_fonts().await;
+        assert!(!names.is_empty());
+        assert!(
+            names.iter().all(|name| !name.starts_with('.')),
+            "private/internal font families should be filtered out"
+        );
     }
 }
