@@ -738,7 +738,9 @@ mod tests {
         let base = crate::config::Config::default();
         let base_height = overlay_height_for_width(940.0, &base);
         let mut rotated = base.clone();
-        rotated.keyboard_halves_rotation = 15.0;
+        // The curated default is already -15°, so use an unrotated board to
+        // exercise the geometry difference rather than its mirror angle.
+        rotated.keyboard_halves_rotation = 0.0;
         assert_ne!(overlay_height_for_width(940.0, &rotated), base_height);
         let rotated_height = overlay_height_for_width(940.0, &rotated);
         rotated.show_key_shadows = true;

@@ -84,7 +84,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         }
     });
 
-    // Rasterized from icons/voyager.svg. Keep the transparent monochrome image
+    // Rasterized from icons/keyaura-tray-icon.svg. Keep the transparent monochrome image
     // as a template so macOS supplies contrasting light/dark menu-bar colors.
     let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     TrayIconBuilder::with_id("main")
