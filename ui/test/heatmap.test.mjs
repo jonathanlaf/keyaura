@@ -66,9 +66,37 @@ test('corrupt or unavailable storage does not interrupt key tracking', () => {
 });
 
 test('color and saturation changes are computed from the current preferences', () => {
-  assert.equal(heatmapFill(0, '#ffffff', 20), 'rgba(255,255,255,0)');
-  assert.equal(heatmapFill(20, '#00ff00', 20), 'rgba(0,255,0,0.7999999999999999)');
+  assert.equal(heatmapFill(0, '#ff0000', 20, '#000000', 0.4), 'rgba(0,0,0,0.4)');
+  assert.equal(heatmapFill(10, '#ff0000', 20, '#000000', 0.4), 'rgba(128,0,0,0.4)');
+  assert.equal(heatmapFill(20, '#00ff00', 20, '#000000', 0.4), 'rgba(0,255,0,0.4)');
+  assert.equal(heatmapFill(200, '#00ff00', 20, '#000000', 0.4), 'rgba(0,255,0,0.4)');
   assert.notEqual(heatmapFill(10, '#ff0000', 20), heatmapFill(10, '#0000ff', 20));
   assert.notEqual(heatmapFill(10, '#ff0000', 20), heatmapFill(10, '#ff0000', 40));
   assert.equal(heatmapFill(10, undefined, 20), heatmapFill(10, '#ff5c5c', 20));
+  assert.equal(heatmapFill(20, '#00ff00', 20, '#000000', 0), 'rgba(0,255,0,0)');
+  assert.equal(heatmapFill(20, '#00ff00', 20, '#000000', 1), 'rgba(0,255,0,1)');
+});
+
+test('default timers are called without binding them to the Heatmap instance', (t) => {
+  let saved;
+  let canceled;
+  t.mock.method(globalThis, 'setTimeout', function (callback, delay) {
+    assert.equal(this, undefined, 'a browser timer cannot use Heatmap as its Window receiver');
+    assert.equal(delay, 250);
+    saved = callback;
+    return 123;
+  });
+  t.mock.method(globalThis, 'clearTimeout', function (id) {
+    assert.equal(this, undefined);
+    canceled = id;
+  });
+  const heatmap = new Heatmap();
+  assert.equal(heatmap.record(51), true);
+  assert.equal(heatmap.counts[51], 1);
+  saved();
+  assert.equal(canceled, 123);
+  assert.equal(heatmap.timer, null);
+  heatmap.record(51);
+  heatmap.reset();
+  assert.equal(heatmap.counts[51], 0);
 });

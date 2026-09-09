@@ -5,6 +5,10 @@
 
 A highly configurable macOS overlay for learning programmable keyboards through their QMK firmware events. KeyAura keeps the active layer, physical key presses, layer triggers, alternate characters, and Shift hints visible while you work.
 
+## Demo
+
+[Watch KeyAura in action (MP4, 12 MB)](.github/assets/keyaura-demo.mp4)
+
 KeyAura is designed around keyboard adapters, so support can grow beyond a single manufacturer or model. Today it ships with one adapter: the ZSA Voyager through its Oryx Raw HID interface. Additional QMK keyboard adapters are planned; a standard QMK firmware alone does not guarantee one universal host-side event protocol.
 
 This project is fully vibe coded as an experiment in building a useful native utility with [Claude](https://www.anthropic.com/claude) and [OpenAI Codex](https://openai.com/codex/).

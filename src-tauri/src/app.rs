@@ -66,6 +66,43 @@ pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRe
     }
 }
 
+/// Board footprint (width, height in board units) after accounting for the
+/// rotation applied to each keyboard half. Mirrors ui/geometry.mjs's
+/// rotatedBoardFootprint exactly: this side derives the window size needed
+/// for a target render width (on resize), the JS side derives the render
+/// unit from the window's actual current size (on every layout) — both need
+/// the identical trig, computed at different times for different purposes.
+/// A parallel golden-value test lives in each: this file's
+/// rotated_footprint_matches_known_values, and ui/test/geometry.test.mjs's
+/// "matches the Rust rotated footprint" case. If you touch this formula,
+/// update both tests.
+pub(crate) fn rotated_board_footprint(board_width: f64, angle_deg: f64) -> (f64, f64) {
+    let angle = angle_deg.abs().to_radians();
+    let rotated_width = board_width + 2.0 * 6.0 * angle.sin();
+    let rotated_height = 6.0 * (angle.cos() + angle.sin());
+    (rotated_width, rotated_height)
+}
+
+/// Height needed by the rotated keyboard plus the currently enabled glow.
+/// Rotation expands the keyboard's footprint both horizontally and vertically.
+/// Use that full footprint when deriving the key unit: otherwise a zero-padding
+/// board scales from the unrotated width and crops its outer keys.
+pub(crate) fn overlay_height_for_width(width: f64, config: &crate::config::Config) -> f64 {
+    let content_width = (width - 2.0 * config.padding).max(1.0);
+    let board_width = 12.0 + config.keyboard_halves_distance;
+    let (rotated_width, rotated_height) =
+        rotated_board_footprint(board_width, config.keyboard_halves_rotation);
+    // The window should not jump when a shadow is enabled, moved, blurred, or
+    // disabled. Reserve the largest extent permitted by Settings' clamp()
+    // for every render instead, so this stays in sync if those bounds change.
+    const MAX_SHADOW_EXTENT: f64 =
+        crate::config::MAX_SHADOW_DISTANCE + crate::config::MAX_SHADOW_DIFFUSION;
+
+    (content_width / rotated_width * rotated_height
+        + 2.0 * (config.padding + MAX_SHADOW_EXTENT + 2.0))
+        .max(120.0)
+}
+
 /// Whether a saved rect's origin still falls within a monitor's *current*
 /// bounds. The same monitor (same monitor_key) can still go stale — a
 /// resolution/scaling change or a rearranged multi-monitor layout moves its
@@ -168,6 +205,19 @@ pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
 #[tauri::command]
 pub fn get_app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+#[tauri::command]
+pub fn get_overlay_geometry(app: AppHandle) -> Result<serde_json::Value, String> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| "overlay window is not available".to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    let size = window
+        .inner_size()
+        .map_err(|error| error.to_string())?
+        .to_logical::<f64>(scale);
+    Ok(serde_json::json!({ "width": size.width, "height": size.height }))
 }
 
 #[tauri::command]
@@ -308,10 +358,8 @@ pub async fn recalculate_window_geometry(app: AppHandle) -> Result<(), String> {
         .inner_size()
         .map_err(|e| e.to_string())?
         .to_logical::<f64>(scale);
-    let path = config_path(&app)?;
-    let distance = crate::config::load(&path).keyboard_halves_distance;
-    let ratio = (12.0 + distance) / 6.0;
-    let new_height = (size.width / ratio).max(120.0);
+    let config = crate::config::load(&config_path(&app)?);
+    let new_height = overlay_height_for_width(size.width, &config);
     let center_y = pos.y + size.height / 2.0;
     let new_y = center_y - new_height / 2.0;
     let rect = crate::config::WindowRect {
@@ -617,9 +665,44 @@ pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
     })
 }
 
+/// Every font family installed on the system, for the Settings font pickers'
+/// datalist. Runs the CoreText/filesystem enumeration on a blocking thread
+/// rather than the calling thread — like every other slow command in this
+/// file (align_window, reset_window_positions, import_config, ...) — since a
+/// plain non-async command here would otherwise stall the app for the
+/// duration of the scan on every Settings window open (nothing caches this).
+/// Filters out macOS's dot-prefixed private/internal families (e.g.
+/// ".AppleSystemUIFont") that font backends surface but aren't meant to be
+/// user-selectable. Falls back to an empty list (logged) on enumeration
+/// failure rather than erroring the whole Settings window — the font-family
+/// inputs are plain text fields, so losing autocomplete suggestions degrades
+/// gracefully instead of breaking anything.
+#[tauri::command]
+pub async fn list_system_fonts() -> Vec<String> {
+    let mut names = match tokio::task::spawn_blocking(|| {
+        font_kit::source::SystemSource::new().all_families()
+    })
+    .await
+    {
+        Ok(Ok(names)) => names,
+        Ok(Err(error)) => {
+            eprintln!("KeyAura: could not list system fonts: {error}");
+            Vec::new()
+        }
+        Err(error) => {
+            eprintln!("KeyAura: font enumeration task panicked: {error}");
+            Vec::new()
+        }
+    };
+    names.retain(|name| !name.starts_with('.'));
+    names.sort();
+    names.dedup();
+    names
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_layout_hash;
+    use super::{list_system_fonts, overlay_height_for_width, parse_layout_hash, rotated_board_footprint};
 
     #[test]
     fn parses_full_url() {
@@ -648,5 +731,59 @@ mod tests {
         assert_eq!(parse_layout_hash(""), None);
         assert_eq!(parse_layout_hash("https://example.com/foo"), None);
         assert_eq!(parse_layout_hash("has spaces"), None);
+    }
+
+    #[test]
+    fn rotation_adjusts_height_while_shadow_settings_do_not() {
+        let base = crate::config::Config::default();
+        let base_height = overlay_height_for_width(940.0, &base);
+        let mut rotated = base.clone();
+        rotated.keyboard_halves_rotation = 15.0;
+        assert_ne!(overlay_height_for_width(940.0, &rotated), base_height);
+        let rotated_height = overlay_height_for_width(940.0, &rotated);
+        rotated.show_key_shadows = true;
+        rotated.key_shadow_distance = 20.0;
+        rotated.key_shadow_diffusion = 30.0;
+        assert_eq!(overlay_height_for_width(940.0, &rotated), rotated_height);
+    }
+
+    #[test]
+    fn rotated_footprint_matches_known_values() {
+        // Golden values shared with ui/test/geometry.test.mjs's "matches the
+        // Rust rotated footprint" test. If either side's trig changes without
+        // the other, one of these two tests should fail.
+        let close = |actual: f64, expected: f64| {
+            assert!((actual - expected).abs() < 1e-9, "{actual} != {expected}");
+        };
+
+        let (flat_w, flat_h) = rotated_board_footprint(13.6, 0.0);
+        close(flat_w, 13.6);
+        close(flat_h, 6.0);
+
+        let (mid_w, mid_h) = rotated_board_footprint(13.6, 7.5);
+        close(mid_w, 15.166314306640619);
+        close(mid_h, 6.731826321563172);
+
+        let (max_w, max_h) = rotated_board_footprint(13.6, 15.0);
+        close(max_w, 16.705828541230247);
+        close(max_h, 7.348469228349534);
+    }
+
+    #[tokio::test]
+    async fn system_fonts_are_enumerated_and_private_families_are_filtered() {
+        // The sort()/dedup() calls inside list_system_fonts aren't worth
+        // reasserting here — they always run right before the function
+        // returns, so re-checking sortedness/no-duplicates on the result
+        // would only prove the standard library works. What's actually
+        // worth verifying against the real system: the enumeration succeeds
+        // at all (every dev/CI machine this app targets is macOS and ships
+        // system fonts — an empty result would mean SystemSource silently
+        // failed), and the dot-prefixed private-family filter is applied.
+        let names = list_system_fonts().await;
+        assert!(!names.is_empty());
+        assert!(
+            names.iter().all(|name| !name.starts_with('.')),
+            "private/internal font families should be filtered out"
+        );
     }
 }
