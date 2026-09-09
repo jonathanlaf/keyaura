@@ -355,9 +355,13 @@ impl Config {
         self.key_shadow_opacity = self.key_shadow_opacity.clamp(0.0, 1.0);
         self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
         self.key_shadow_distance = self.key_shadow_distance.clamp(0.0, MAX_SHADOW_DISTANCE);
-        self.pressed_key_shadow_distance = self.pressed_key_shadow_distance.clamp(0.0, MAX_SHADOW_DISTANCE);
+        self.pressed_key_shadow_distance = self
+            .pressed_key_shadow_distance
+            .clamp(0.0, MAX_SHADOW_DISTANCE);
         self.key_shadow_diffusion = self.key_shadow_diffusion.clamp(0.0, MAX_SHADOW_DIFFUSION);
-        self.pressed_key_shadow_diffusion = self.pressed_key_shadow_diffusion.clamp(0.0, MAX_SHADOW_DIFFUSION);
+        self.pressed_key_shadow_diffusion = self
+            .pressed_key_shadow_diffusion
+            .clamp(0.0, MAX_SHADOW_DIFFUSION);
         self.alternate_char_opacity = self.alternate_char_opacity.clamp(0.2, 1.0);
         self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
         self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);

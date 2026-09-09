@@ -679,21 +679,20 @@ pub fn get_keyboard_details(app: AppHandle) -> serde_json::Value {
 /// gracefully instead of breaking anything.
 #[tauri::command]
 pub async fn list_system_fonts() -> Vec<String> {
-    let mut names = match tokio::task::spawn_blocking(|| {
-        font_kit::source::SystemSource::new().all_families()
-    })
-    .await
-    {
-        Ok(Ok(names)) => names,
-        Ok(Err(error)) => {
-            eprintln!("KeyAura: could not list system fonts: {error}");
-            Vec::new()
-        }
-        Err(error) => {
-            eprintln!("KeyAura: font enumeration task panicked: {error}");
-            Vec::new()
-        }
-    };
+    let mut names =
+        match tokio::task::spawn_blocking(|| font_kit::source::SystemSource::new().all_families())
+            .await
+        {
+            Ok(Ok(names)) => names,
+            Ok(Err(error)) => {
+                eprintln!("KeyAura: could not list system fonts: {error}");
+                Vec::new()
+            }
+            Err(error) => {
+                eprintln!("KeyAura: font enumeration task panicked: {error}");
+                Vec::new()
+            }
+        };
     names.retain(|name| !name.starts_with('.'));
     names.sort();
     names.dedup();
@@ -702,7 +701,9 @@ pub async fn list_system_fonts() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{list_system_fonts, overlay_height_for_width, parse_layout_hash, rotated_board_footprint};
+    use super::{
+        list_system_fonts, overlay_height_for_width, parse_layout_hash, rotated_board_footprint,
+    };
 
     #[test]
     fn parses_full_url() {
