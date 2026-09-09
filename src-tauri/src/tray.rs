@@ -16,7 +16,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let pin = MenuItem::with_id(app, "pin", "Unpin keyboard", true, None::<&str>)?;
-    if let Ok(path) = crate::oryx::config_path(app) {
+    if let Ok(path) = crate::app::config_path(app) {
         let cfg = crate::config::load(&path);
         let _ = pin.set_text(if cfg.overlay_pinned {
             "Pin keyboard"
@@ -84,7 +84,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         }
     });
 
-    // Rasterized from icons/voyager.svg. Keep the transparent monochrome image
+    // Rasterized from icons/keyaura-tray-icon.svg. Keep the transparent monochrome image
     // as a template so macOS supplies contrasting light/dark menu-bar colors.
     let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     TrayIconBuilder::with_id("main")
@@ -96,7 +96,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = crate::layout::refresh_layout(app.clone()).await {
-                        eprintln!("layer-hud: {error}");
+                        eprintln!("KeyAura: {error}");
                         let _ = tauri::Emitter::emit(&app, "layout-error", error);
                     }
                 });
@@ -104,8 +104,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             "toggle" => {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = crate::oryx::toggle_overlay_visibility(app.clone()).await {
-                        eprintln!("layer-hud: overlay toggle failed: {error}");
+                    if let Err(error) = crate::app::toggle_overlay_visibility(app.clone()).await {
+                        eprintln!("KeyAura: overlay toggle failed: {error}");
                         let _ = tauri::Emitter::emit(&app, "overlay-toggle-error", error);
                     }
                 });
@@ -173,7 +173,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // desync (e.g. unchecking pin while the combo is still held
                 // would wrongly force the window non-interactive here, and
                 // the loop's cache would then suppress the correction).
-                match crate::oryx::update_config(app, move |cfg| cfg.overlay_pinned = pinned) {
+                match crate::app::update_config(app, move |cfg| cfg.overlay_pinned = pinned) {
                     Ok(cfg) => {
                         let _ = tauri::Emitter::emit(app, "config-changed", cfg);
                     }
@@ -183,7 +183,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         } else {
                             "Pin keyboard"
                         });
-                        eprintln!("layer-hud: could not save pin mode: {error}");
+                        eprintln!("KeyAura: could not save pin mode: {error}");
                     }
                 }
             }
@@ -203,7 +203,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 .always_on_top(true)
                 .build()
                 {
-                    eprintln!("Failed to open icon legend: {e}");
+                    eprintln!("KeyAura: failed to open icon legend: {e}");
                 }
             }
             "about" => {
@@ -222,7 +222,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 .always_on_top(true)
                 .build()
                 {
-                    eprintln!("Failed to open About window: {e}");
+                    eprintln!("KeyAura: failed to open About window: {e}");
                 }
             }
             "settings" => {
@@ -230,20 +230,29 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     let _ = w.unminimize();
                     let _ = w.reload();
                     let _ = w.set_always_on_top(true);
-                    let _ = w.set_size(tauri::LogicalSize::new(640.0, 720.0));
                     let _ = w.show();
                     let _ = w.set_focus();
                 } else {
-                    let _ = tauri::WebviewWindowBuilder::new(
+                    let (width, height) = crate::app::config_path(app)
+                        .ok()
+                        .map(|path| {
+                            let cfg = crate::config::load(&path);
+                            (cfg.settings_window_width, cfg.settings_window_height)
+                        })
+                        .unwrap_or((860.0, 760.0));
+                    if let Err(e) = tauri::WebviewWindowBuilder::new(
                         app,
                         "settings",
                         tauri::WebviewUrl::App("settings.html".into()),
                     )
                     .title("KeyAura Settings — General")
-                    .inner_size(640.0, 720.0)
-                    .min_inner_size(520.0, 520.0)
+                    .inner_size(width, height)
+                    .min_inner_size(680.0, 560.0)
                     .always_on_top(true)
-                    .build();
+                    .build()
+                    {
+                        eprintln!("KeyAura: failed to open Settings window: {e}");
+                    }
                 }
             }
             #[cfg(debug_assertions)]
@@ -253,7 +262,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     .pinned
                     .store(true, std::sync::atomic::Ordering::SeqCst);
                 let _ = pin_handle.set_text("Pin keyboard");
-                let _ = crate::oryx::update_config(app, |cfg| cfg.overlay_pinned = true);
+                let _ = crate::app::update_config(app, |cfg| cfg.overlay_pinned = true);
                 if let Some(window) = app.get_webview_window("overlay") {
                     let _ = window.set_ignore_cursor_events(false);
                 }

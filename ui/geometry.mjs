@@ -25,3 +25,20 @@ export function keyRects(spacing = 0.06, halfDistance = DEFAULT_HALF_DISTANCE) {
 export function boardUnits(halfDistance = DEFAULT_HALF_DISTANCE) {
   return { w: HALF_WIDTH * 2 + halfDistance, h: 6.0 };
 }
+
+// Board footprint (in board units) after accounting for the rotation applied
+// to each keyboard half. Mirrors src-tauri/src/app.rs's
+// rotated_board_footprint exactly: the Rust side derives the window size
+// needed for a target render width (on resize), this side derives the render
+// unit from the window's actual current size (on every layout) — both need
+// the identical trig, computed at different times for different purposes.
+// A parallel golden-value test lives in each: this file's counterpart is
+// ui/test/geometry.test.mjs's "matches the Rust rotated footprint" case, and
+// the Rust counterpart is app.rs's rotated_footprint_matches_known_values.
+// If you touch this formula, update both tests.
+export function rotatedBoardFootprint(boardWidth, angleDeg = 0) {
+  const angle = Math.abs(angleDeg) * Math.PI / 180;
+  const rotatedWidth = boardWidth + 2 * 6.0 * Math.sin(angle);
+  const rotatedHeight = 6.0 * (Math.cos(angle) + Math.sin(angle));
+  return { w: rotatedWidth, h: rotatedHeight };
+}

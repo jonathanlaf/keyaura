@@ -1,4 +1,4 @@
-import { keyRects, boardUnits } from './geometry.mjs';
+import { keyRects, boardUnits, rotatedBoardFootprint } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
 import { LAYER_ACTIONS } from './layer-actions.mjs';
 import { Heatmap, heatmapFill } from './heatmap.mjs';
@@ -46,7 +46,8 @@ function applyHeatmapKey(index) {
   const strength = Math.min(1, count / peak);
   document.querySelectorAll(`.key[data-key-index="${index}"]`).forEach((el) => {
     el.classList.toggle('heatmap-active', strength > 0);
-    el.style.setProperty('--heatmap-fill', heatmapFill(count, lastConfig?.heatmap_color, peak));
+    const baseColor = (lastConfig?.use_oryx_colors && el.dataset.layoutFillColor) || lastConfig?.key_fill_color;
+    el.style.setProperty('--heatmap-fill', heatmapFill(count, lastConfig?.heatmap_color, peak, baseColor, lastConfig?.key_fill_opacity ?? 0));
     const label = el.querySelector('.heatmap-count');
     if (label) {
       label.textContent = String(heatmapCounts[index] || 0);
@@ -104,9 +105,12 @@ function decorateAction(element, slotName, slot, secondary = false) {
 function computeLayout(config) {
   const pad = config.padding ?? 10;
   const units = boardUnits(config.keyboard_halves_distance ?? 1.6);
+  // Each half pivots around its own center. Account for the vertical span that
+  // enters the horizontal footprint so an edge remains visible at zero padding.
+  const { w: rotatedWidth, h: rotatedHeight } = rotatedBoardFootprint(units.w, config.keyboard_halves_rotation ?? 0);
   const availW = window.innerWidth - 2 * pad;
   const availH = window.innerHeight - 2 * pad;
-  const unit = Math.max(8, Math.min(availW / units.w, availH / units.h));
+  const unit = Math.max(8, Math.min(availW / rotatedWidth, availH / rotatedHeight));
   // Center the key grid on the board background.
   const offX = (window.innerWidth - units.w * unit) / 2;
   const offY = (window.innerHeight - units.h * unit) / 2;
@@ -158,17 +162,16 @@ export function renderBoard(layoutJson, config) {
       if (i === 24 || i === 25) k.classList.add('thumb-left');
       if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
-      if (heatmapCounts[i]) {
-        k.classList.add('heatmap-active');
-        k.style.setProperty('--heatmap-fill', heatmapFill(heatmapCounts[i], config.heatmap_color, config.heatmap_peak ?? 20));
-      }
       if (config.show_heatmap_counts) {
         const count = document.createElement('span');
         count.className = 'heatmap-count';
         count.textContent = String(heatmapCounts[i] || 0);
         k.appendChild(count);
       }
-      if (config.use_oryx_colors && key.glowColor) k.style.setProperty('--oryx-fill', hexTint(key.glowColor));
+      if (key.glowColor) {
+        k.dataset.layoutFillColor = key.glowColor;
+        if (config.use_oryx_colors) k.style.setProperty('--oryx-fill', hexTint(key.glowColor));
+      }
       const custom = key.customLabel;
       const tap = document.createElement('span');
       tap.className = 'tap';
@@ -211,6 +214,9 @@ export function renderBoard(layoutJson, config) {
     });
     board.appendChild(el);
   }
+  // Re-apply persisted heatmap values after all key-level fill variables
+  // (including Oryx colors) have been established.
+  refreshHeatmap();
 }
 
 function hexToRgba(hex, alpha) {
@@ -240,11 +246,20 @@ function applyTheme(config) {
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
+  st.setProperty('--pressed-char-opacity', config.pressed_char_opacity ?? config.char_opacity);
+  st.setProperty('--alternate-opacity', config.alternate_char_opacity ?? config.char_opacity ?? 1);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
-  st.setProperty('--layer-name-color', config.text_color);
-  st.setProperty('--layer-name-border', hexToRgba(config.border_color, config.border_opacity));
-  st.setProperty('--layer-name-opacity', config.char_opacity);
+  st.setProperty('--layer-pill-text-color', config.layer_pill_text_color ?? config.text_color);
+  st.setProperty('--layer-pill-text-opacity', config.layer_pill_text_opacity ?? config.char_opacity);
+  st.setProperty('--layer-pill-fill', hexToRgba(config.layer_pill_fill_color ?? config.key_fill_color, config.layer_pill_fill_opacity ?? config.key_fill_opacity));
+  st.setProperty('--layer-pill-border', hexToRgba(config.layer_pill_border_color ?? config.border_color, config.layer_pill_border_opacity ?? config.border_opacity));
+  st.setProperty('--layer-pill-border-width', `${config.layer_pill_border_width ?? 1}px`);
+  st.setProperty('--offline-pill-text-color', config.offline_pill_text_color ?? '#ffffff');
+  st.setProperty('--offline-pill-text-opacity', config.offline_pill_text_opacity ?? 1);
+  st.setProperty('--offline-pill-fill', hexToRgba(config.offline_pill_fill_color ?? '#d92c2c', config.offline_pill_fill_opacity ?? 1));
+  st.setProperty('--offline-pill-border', hexToRgba(config.offline_pill_border_color ?? '#ffffff', config.offline_pill_border_opacity ?? 0.65));
+  st.setProperty('--offline-pill-border-width', `${config.offline_pill_border_width ?? 1}px`);
   st.setProperty('--shift-color', config.shift_color ?? '#ffffff');
   st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
@@ -255,9 +270,21 @@ function applyTheme(config) {
   st.setProperty('--pressed-key-border', hexToRgba(config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_border_opacity ?? 0.85));
   st.setProperty('--pressed-key-border-width', `${config.pressed_key_border_width ?? 1}px`);
   st.setProperty('--key-border-radius', `${config.key_border_radius ?? 7}px`);
-  st.setProperty('--pill-border-radius', `${config.pill_border_radius ?? 999}px`);
-  st.setProperty('--key-shadow', config.show_key_shadows ? `0 2px 5px ${hexToRgba(config.key_shadow_color ?? '#ffffff', config.key_shadow_opacity ?? 0.25)}` : 'none');
-  st.setProperty('--pressed-key-shadow', config.show_pressed_key_shadow ? `0 0 10px ${hexToRgba(config.pressed_key_shadow_color ?? config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_shadow_opacity ?? 0.85)}` : 'none');
+  st.setProperty('--layer-pill-border-radius', `${config.layer_pill_border_radius ?? config.pill_border_radius ?? 999}px`);
+  st.setProperty('--offline-pill-border-radius', `${config.offline_pill_border_radius ?? config.pill_border_radius ?? 999}px`);
+  const shadowValue = (enabled, color, opacity, position, distance, diffusion) => {
+    if (!enabled) return 'none';
+    const d = Math.max(0, Number(distance) || 0);
+    const blur = Math.max(0, Number(diffusion) || 0);
+    const rgba = hexToRgba(color, opacity);
+    if (position === 'top-right') return `${d}px ${-d}px ${blur}px ${rgba}`;
+    if (position === 'top-left') return `${-d}px ${-d}px ${blur}px ${rgba}`;
+    if (position === 'bottom-right') return `${d}px ${d}px ${blur}px ${rgba}`;
+    if (position === 'bottom-left') return `${-d}px ${d}px ${blur}px ${rgba}`;
+    return `0 0 ${blur}px ${rgba}`;
+  };
+  st.setProperty('--key-shadow', shadowValue(config.show_key_shadows, config.key_shadow_color ?? '#ffffff', config.key_shadow_opacity ?? 0.25, config.key_shadow_position, config.key_shadow_distance, config.key_shadow_diffusion ?? 5));
+  st.setProperty('--pressed-key-shadow', shadowValue(config.show_pressed_key_shadow, config.pressed_key_shadow_color ?? config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_shadow_opacity ?? 0.85, config.pressed_key_shadow_position, config.pressed_key_shadow_distance, config.pressed_key_shadow_diffusion ?? 5));
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
   st.setProperty('--base-outline', hexToRgba(config.base_outline_color, config.base_outline_opacity));
@@ -270,6 +297,7 @@ function applyTheme(config) {
   fontVars(st, 'key', config);
   fontVars(st, 'legend', config);
   fontVars(st, 'layer_name', config);
+  fontVars(st, 'offline', config);
   refreshHeatmap();
 }
 
@@ -293,14 +321,13 @@ function applyOverlayVisibility(payload) {
   const visibleX = reveal === 0 ? 0 : Math.min(width, Math.max(width * reveal, keyUnit * 0.94));
   const visibleY = reveal === 0 ? 0 : Math.min(height, Math.max(height * reveal, keyUnit * 0.94));
   const st = document.documentElement.style;
-  st.setProperty('--hide-clip-left', side === 'right' ? `${width - visibleX}px` : '0px');
-  st.setProperty('--hide-clip-right', side === 'left' ? `${width - visibleX}px` : '0px');
-  st.setProperty('--hide-clip-top', side === 'bottom' ? `${height - visibleY}px` : '0px');
-  st.setProperty('--hide-clip-bottom', side === 'top' ? `${height - visibleY}px` : '0px');
   st.setProperty('--hide-visible-x', `${visibleX}px`);
   st.setProperty('--hide-visible-y', `${visibleY}px`);
-  st.setProperty('--hide-shift-x', side === 'left' ? `-${width - visibleX}px` : side === 'right' ? `${width - visibleX}px` : '0px');
-  st.setProperty('--hide-shift-y', side === 'top' ? `-${height - visibleY}px` : side === 'bottom' ? `${height - visibleY}px` : '0px');
+  // Translate the entire board, rather than just its key layer. This leaves
+  // the keyboard at its real geometry while the WebView viewport clips the
+  // portion that has moved past the selected screen edge.
+  st.setProperty('--hide-board-shift-x', side === 'left' ? `-${width - visibleX}px` : side === 'right' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-board-shift-y', side === 'top' ? `-${height - visibleY}px` : side === 'bottom' ? `${height - visibleY}px` : '0px');
   document.body.dataset.hideSide = side;
 }
 
@@ -393,7 +420,7 @@ async function main() {
   await listen('grab-mode', (e) => setGrabCue(!!e.payload.on));
   await listen('overlay-visibility', (e) => applyOverlayVisibility(e.payload));
   await listen('overlay-toggle-error', e => {
-    console.warn('layer-hud: overlay toggle failed:', e.payload);
+    console.warn('KeyAura: overlay toggle failed:', e.payload);
     const board = document.getElementById('board');
     if (board && !document.body.classList.contains('overlay-hidden')) {
       board.dataset.toggleError = String(e.payload || 'toggle failed');
@@ -407,15 +434,18 @@ async function main() {
     const previous = lastConfig;
     lastConfig = e.payload;
     applyTheme(lastConfig);
-    const distanceChanged = previous?.keyboard_halves_distance !== lastConfig.keyboard_halves_distance;
-    const needsRender = !previous || ['use_oryx_colors', 'padding', 'key_spacing', 'keyboard_halves_distance', 'show_heatmap_counts',
+    refreshHeatmap();
+    const geometryChanged = previous?.keyboard_halves_distance !== lastConfig.keyboard_halves_distance
+      || previous?.keyboard_halves_rotation !== lastConfig.keyboard_halves_rotation
+      || previous?.padding !== lastConfig.padding;
+    const needsRender = !previous || ['use_oryx_colors', 'padding', 'key_spacing', 'keyboard_halves_distance', 'show_heatmap', 'show_heatmap_counts', 'heatmap_color', 'heatmap_peak', 'key_fill_opacity',
       'layer_pill_horizontal', 'layer_pill_vertical', 'offline_pill_horizontal', 'offline_pill_vertical', 'layer_indicator']
       .some(field => previous[field] !== lastConfig[field]);
     if (needsRender && lastLayout) {
       renderBoard(lastLayout, lastConfig);
       setActiveLayer(lastLayer);
     }
-    if (distanceChanged) invoke('recalculate_window_geometry')
+    if (geometryChanged) invoke('recalculate_window_geometry')
       .catch(err => console.warn('Could not recalculate window geometry:', err));
   });
   await listen('layout-refreshed', async (e) => {
@@ -488,11 +518,11 @@ async function main() {
       setActiveLayer(lastLayer);
     }
   } catch (err) {
-    console.error('layer-hud: startup layout failed:', err);
+    console.error('KeyAura: startup layout failed:', err);
     if (!lastLayout) showStartupError(err);
   }
 }
 main().catch((err) => {
-  console.error('layer-hud startup failed:', err);
+  console.error('KeyAura startup failed:', err);
   showStartupError(err);
 });
