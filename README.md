@@ -29,6 +29,23 @@ The `OFFLINE` pill means the keyboard’s event connection is unavailable. A lay
 
 Download the app from [Releases](https://github.com/jonathanlaf/keyaura/releases), open the DMG, and move KeyAura to Applications. Rust and Node are not needed to run a downloaded app.
 
+### Install on macOS
+
+Current release downloads are built for Apple Silicon Macs. After copying
+KeyAura to Applications, open it once. Because releases are ad-hoc signed but
+not notarized with an Apple Developer ID, macOS will ask you to approve the
+first launch:
+
+1. Try opening KeyAura, then dismiss the warning.
+2. Open **System Settings → Privacy & Security** and scroll to the Security
+   section.
+3. Click **Open Anyway**, enter your password, then confirm **Open**.
+
+Only approve the app when it was downloaded from this repository's Releases
+page. macOS saves that decision, so later launches work normally. Apple's
+[instructions for opening an app from an unknown developer](https://support.apple.com/guide/mac-help/open-an-app-by-overriding-security-settings-mh40617/mac)
+describe the same process.
+
 Connect a keyboard supported by a KeyAura adapter. The current Voyager adapter requires compatible Oryx firmware; close Keymapp and browser Oryx live-training sessions so they do not compete for the HID interface. An internet connection is needed for this adapter’s first layout-metadata fetch.
 
 This is a macOS-only app. The first compatible keyboard interface is used; there is no device picker yet. Adapter-specific limitations are documented with each supported keyboard.
