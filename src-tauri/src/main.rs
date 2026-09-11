@@ -56,41 +56,26 @@ fn main() {
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner()) = cfg.grab_combo.clone();
                 let monitors = overlay.available_monitors().unwrap_or_default();
-                // A freshly-created window's current_monitor() just reflects
-                // wherever the OS placed it (usually the primary display),
-                // not necessarily where the user left it — so prefer the
-                // monitor last_monitor names, if it's still connected, over
-                // trusting current_monitor() for *which* monitor to restore.
-                let target = cfg
-                    .last_monitor
-                    .as_ref()
-                    .and_then(|last| monitors.iter().find(|m| &app::monitor_key(m) == last))
-                    .or_else(|| {
-                        overlay
-                            .current_monitor()
-                            .ok()
-                            .flatten()
-                            .as_ref()
-                            .and_then(|cur| {
-                                let key = app::monitor_key(cur);
-                                monitors.iter().find(|m| app::monitor_key(m) == key)
-                            })
-                    })
-                    .or_else(|| monitors.first());
-                if let Some(mon) = target {
-                    let key = app::monitor_key(mon);
-                    let rect = cfg
-                        .window_by_monitor
-                        .get(&key)
-                        .filter(|r| app::rect_fits_monitor(r, mon))
-                        .cloned()
-                        .unwrap_or_else(|| app::default_rect_for_monitor(mon));
+                if !monitors.is_empty() {
+                    // A freshly-created window's current_monitor() just
+                    // reflects wherever the OS placed it (usually the
+                    // primary display), not necessarily where the user left
+                    // it — only useful as a tie-breaker hint when this exact
+                    // arrangement has no remembered position at all.
+                    let preferred = overlay
+                        .current_monitor()
+                        .ok()
+                        .flatten()
+                        .map(|m| app::monitor_key(&m));
+                    let (_mon, rect) =
+                        app::resolve_placement(&monitors, preferred.as_deref(), &cfg);
                     app::apply_rect(&overlay, &rect);
                 }
             }
 
             hid::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
+            app::spawn_display_watch(app.handle().clone());
             tray::build(app.handle())?;
             if start_hidden {
                 let app_handle = app.handle().clone();
@@ -169,11 +154,8 @@ fn main() {
                         w: size.width,
                         h: size.height,
                     };
-                    let key = app::monitor_key(&mon);
-                    if let Err(e) = app::update_config(app, move |cfg| {
-                        cfg.window_by_monitor.insert(key.clone(), rect);
-                        cfg.last_monitor = Some(key);
-                    }) {
+                    let monitors = window.available_monitors().unwrap_or_default();
+                    if let Err(e) = app::save_window_placement(app, &monitors, &mon, &rect) {
                         eprintln!("KeyAura: failed to persist window rect: {e}");
                     }
                     if matches!(event, tauri::WindowEvent::Resized(_)) {

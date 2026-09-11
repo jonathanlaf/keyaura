@@ -15,6 +15,27 @@ pub struct WindowRect {
     pub h: f64,
 }
 
+/// A window's size on one physical monitor. Kept separate from position
+/// because size depends only on which screen the window renders on, while
+/// position depends on the full set of screens connected at once (see
+/// [`ArrangementSlot`]).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct MonitorSize {
+    pub w: f64,
+    pub h: f64,
+}
+
+/// Where the overlay sat the last time this exact set of monitors was
+/// connected together (a "display arrangement", e.g. "laptop alone" vs
+/// "laptop + DELL U2720Q") — which monitor of that arrangement it was on,
+/// and its position on that monitor.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ArrangementSlot {
+    pub monitor: String,
+    pub x: f64,
+    pub y: f64,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
 pub struct Config {
@@ -122,8 +143,8 @@ pub struct Config {
     pub offline_font_bold: bool,
     pub offline_font_italic: bool,
     pub font_ligatures: bool,
-    pub window_by_monitor: HashMap<String, WindowRect>,
-    pub last_monitor: Option<String>,
+    pub monitor_sizes: HashMap<String, MonitorSize>,
+    pub arrangement_positions: HashMap<String, ArrangementSlot>,
     pub settings_window_width: f64,
     pub settings_window_height: f64,
 }
@@ -237,8 +258,8 @@ impl Default for Config {
             offline_font_bold: true,
             offline_font_italic: false,
             font_ligatures: true,
-            window_by_monitor: HashMap::new(),
-            last_monitor: None,
+            monitor_sizes: HashMap::new(),
+            arrangement_positions: HashMap::new(),
         }
     }
 }
@@ -247,8 +268,8 @@ impl Config {
     /// Preferences sent by Settings must not overwrite fields owned by HID,
     /// the tray, or native window movement while Settings was open.
     pub fn apply_preferences(&mut self, mut incoming: Self) {
-        incoming.window_by_monitor = std::mem::take(&mut self.window_by_monitor);
-        incoming.last_monitor = self.last_monitor.take();
+        incoming.monitor_sizes = std::mem::take(&mut self.monitor_sizes);
+        incoming.arrangement_positions = std::mem::take(&mut self.arrangement_positions);
         incoming.settings_window_width = self.settings_window_width;
         incoming.settings_window_height = self.settings_window_height;
         incoming.oryx_url = std::mem::take(&mut self.oryx_url);
@@ -284,14 +305,10 @@ impl Config {
         self.toggle_macro.truncate(64);
         self.grab_combo
             .retain(|key| matches!(key.as_str(), "cmd" | "alt" | "ctrl" | "shift"));
-        self.window_by_monitor.retain(|_, r| {
-            r.x.is_finite()
-                && r.y.is_finite()
-                && r.w.is_finite()
-                && r.h.is_finite()
-                && r.w > 0.0
-                && r.h > 0.0
-        });
+        self.monitor_sizes
+            .retain(|_, s| s.w.is_finite() && s.h.is_finite() && s.w > 0.0 && s.h > 0.0);
+        self.arrangement_positions
+            .retain(|_, slot| slot.x.is_finite() && slot.y.is_finite() && !slot.monitor.is_empty());
         // Imported colors must be usable both by CSS and the color inputs.
         let defaults = Config::default();
         macro_rules! color {
@@ -400,6 +417,34 @@ pub fn load(path: &Path) -> Config {
         if value.get("offline_pill_border_radius").is_none() {
             cfg.offline_pill_border_radius = legacy.unwrap_or(cfg.offline_pill_border_radius);
         }
+        // Pre-per-arrangement configs stored one rect per monitor with no
+        // notion of "which other screens were connected at the time". Treat
+        // each as if it were saved while that monitor was the only one
+        // connected — the closest honest reading of data that predates
+        // arrangement tracking — rather than losing everyone's saved spot.
+        if cfg.monitor_sizes.is_empty() && cfg.arrangement_positions.is_empty() {
+            if let Some(old_rects) = value.get("window_by_monitor").and_then(|v| v.as_object()) {
+                for (key, rect_value) in old_rects {
+                    if let Ok(rect) = serde_json::from_value::<WindowRect>(rect_value.clone()) {
+                        cfg.monitor_sizes.insert(
+                            key.clone(),
+                            MonitorSize {
+                                w: rect.w,
+                                h: rect.h,
+                            },
+                        );
+                        cfg.arrangement_positions.insert(
+                            key.clone(),
+                            ArrangementSlot {
+                                monitor: key.clone(),
+                                x: rect.x,
+                                y: rect.y,
+                            },
+                        );
+                    }
+                }
+            }
+        }
     }
     // Clamp on every read, not just set_config's write path, so a hand-edited
     // or otherwise out-of-range value on disk self-heals for every caller
@@ -475,8 +520,8 @@ mod tests {
         assert_eq!(c.hide_side, "bottom");
         assert_eq!(c.hide_reveal, 0.2);
         assert!(c.use_oryx_colors);
-        assert!(c.window_by_monitor.is_empty());
-        assert!(c.last_monitor.is_none());
+        assert!(c.monitor_sizes.is_empty());
+        assert!(c.arrangement_positions.is_empty());
         assert_eq!(c.char_opacity, 1.0);
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
@@ -541,6 +586,30 @@ mod tests {
     }
 
     #[test]
+    fn legacy_window_by_monitor_migrates_to_a_single_monitor_arrangement() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(
+            &path,
+            r#"{"window_by_monitor":{"Built-in Retina Display":{"x":10.0,"y":20.0,"w":800.0,"h":300.0}},"last_monitor":"Built-in Retina Display"}"#,
+        )
+        .unwrap();
+        let cfg = load(&path);
+        assert_eq!(
+            cfg.monitor_sizes.get("Built-in Retina Display"),
+            Some(&MonitorSize { w: 800.0, h: 300.0 })
+        );
+        assert_eq!(
+            cfg.arrangement_positions.get("Built-in Retina Display"),
+            Some(&ArrangementSlot {
+                monitor: "Built-in Retina Display".into(),
+                x: 10.0,
+                y: 20.0,
+            })
+        );
+    }
+
+    #[test]
     fn legacy_shared_pill_radius_migrates_to_both_pills() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
@@ -564,16 +633,16 @@ mod tests {
             show_alternate_action_icons: false,
             ..Config::default()
         };
-        c.window_by_monitor.insert(
+        c.monitor_sizes
+            .insert("test".into(), MonitorSize { w: 800.0, h: 300.0 });
+        c.arrangement_positions.insert(
             "test".into(),
-            WindowRect {
+            ArrangementSlot {
+                monitor: "test".into(),
                 x: 10.0,
                 y: 20.0,
-                w: 800.0,
-                h: 300.0,
             },
         );
-        c.last_monitor = Some("test".into());
         save(&path, &c).unwrap();
         assert_eq!(load(&path), c);
     }
@@ -602,13 +671,14 @@ mod tests {
             ..Config::default()
         };
         cfg.toggle_macro[0] = 255;
-        cfg.window_by_monitor.insert(
-            "bad".into(),
-            WindowRect {
-                x: 0.0,
+        cfg.monitor_sizes
+            .insert("bad".into(), MonitorSize { w: -1.0, h: 20.0 });
+        cfg.arrangement_positions.insert(
+            "nonfinite".into(),
+            ArrangementSlot {
+                monitor: "bad".into(),
+                x: f64::NAN,
                 y: 0.0,
-                w: -1.0,
-                h: 20.0,
             },
         );
         cfg.clamp();
@@ -618,7 +688,8 @@ mod tests {
         assert_eq!(cfg.hide_side, "right");
         assert_eq!(cfg.grab_combo, ["cmd"]);
         assert_eq!(cfg.toggle_macro, vec![51; 64]);
-        assert!(cfg.window_by_monitor.is_empty());
+        assert!(cfg.monitor_sizes.is_empty());
+        assert!(cfg.arrangement_positions.is_empty());
     }
 
     #[test]
@@ -627,16 +698,16 @@ mod tests {
             overlay_pinned: true,
             oryx_url: "abc".into(),
             oryx_revision: "rev2".into(),
-            last_monitor: Some("display".into()),
             ..Config::default()
         };
-        live.window_by_monitor.insert(
+        live.monitor_sizes
+            .insert("display".into(), MonitorSize { w: 300.0, h: 200.0 });
+        live.arrangement_positions.insert(
             "display".into(),
-            WindowRect {
+            ArrangementSlot {
+                monitor: "display".into(),
                 x: 1.0,
                 y: 2.0,
-                w: 300.0,
-                h: 200.0,
             },
         );
         let previous = live.clone();
@@ -647,8 +718,8 @@ mod tests {
         assert_eq!(live.opacity, 0.2);
         assert_eq!(live.oryx_url, previous.oryx_url);
         assert_eq!(live.oryx_revision, previous.oryx_revision);
-        assert_eq!(live.last_monitor, previous.last_monitor);
-        assert_eq!(live.window_by_monitor, previous.window_by_monitor);
+        assert_eq!(live.monitor_sizes, previous.monitor_sizes);
+        assert_eq!(live.arrangement_positions, previous.arrangement_positions);
         assert!(live.overlay_pinned);
     }
 

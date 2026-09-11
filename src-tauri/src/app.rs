@@ -45,6 +45,152 @@ pub fn monitor_key(mon: &tauri::Monitor) -> String {
     }
 }
 
+/// Identifies a "display arrangement" — the exact set of screens connected
+/// at once (e.g. laptop alone vs. laptop + one external monitor) — as a
+/// stable key independent of connection order, so the overlay's position
+/// can be remembered per arrangement rather than reset every time a monitor
+/// connects or disconnects.
+pub fn arrangement_key(monitors: &[tauri::Monitor]) -> String {
+    join_arrangement_keys(monitors.iter().map(monitor_key))
+}
+
+/// Order-independent join behind `arrangement_key`, split out so the
+/// "same screens, different connection/enumeration order = same
+/// arrangement" property can be unit tested without a live `tauri::Monitor`.
+fn join_arrangement_keys(keys: impl IntoIterator<Item = String>) -> String {
+    let mut keys: Vec<String> = keys.into_iter().collect();
+    keys.sort();
+    keys.join("|")
+}
+
+/// Among every past arrangement that placed `target_key` somewhere, pick the
+/// one whose set of monitors overlaps `current_arrangement`'s the most —
+/// the closest available proxy for "an arrangement like this one" — and
+/// break ties by arrangement key so the choice is deterministic across
+/// runs. Without this, picking from `HashMap::values()` directly would
+/// yield a different, randomized answer on every launch whenever more than
+/// one past arrangement recorded a position for the same monitor.
+fn best_known_position(
+    cfg: &crate::config::Config,
+    current_arrangement: &str,
+    target_key: &str,
+) -> Option<(f64, f64)> {
+    let current_members: std::collections::HashSet<&str> = current_arrangement.split('|').collect();
+    cfg.arrangement_positions
+        .iter()
+        .filter(|(_, slot)| slot.monitor == target_key)
+        .max_by_key(|(key, _)| {
+            let overlap = key
+                .split('|')
+                .filter(|m| current_members.contains(m))
+                .count();
+            (overlap, std::cmp::Reverse(key.as_str()))
+        })
+        .map(|(_, slot)| (slot.x, slot.y))
+}
+
+/// Where to put the overlay for the current set of connected monitors, and
+/// what size to give it. Tries, in order: (1) the exact rect remembered for
+/// this exact arrangement, (2) if this arrangement has never been seen, any
+/// monitor it shares with a previously-seen arrangement (so the overlay
+/// keeps a screen's known spot even the first time it appears in a new
+/// combination), (3) the default centered rect for a screen that's
+/// completely new. `preferred_monitor_key`, when given, breaks ties for
+/// which monitor to target in cases (2) and (3) — callers pass the monitor
+/// the overlay was already on, when known.
+pub fn resolve_placement<'a>(
+    monitors: &'a [tauri::Monitor],
+    preferred_monitor_key: Option<&str>,
+    cfg: &crate::config::Config,
+) -> (&'a tauri::Monitor, crate::config::WindowRect) {
+    let arrangement = arrangement_key(monitors);
+    if let Some(slot) = cfg.arrangement_positions.get(&arrangement) {
+        if let Some(mon) = monitors.iter().find(|m| monitor_key(m) == slot.monitor) {
+            let size = cfg
+                .monitor_sizes
+                .get(&slot.monitor)
+                .map(|s| (s.w, s.h))
+                .unwrap_or_else(|| {
+                    let default = default_rect_for_monitor(mon);
+                    (default.w, default.h)
+                });
+            let rect = crate::config::WindowRect {
+                x: slot.x,
+                y: slot.y,
+                w: size.0,
+                h: size.1,
+            };
+            if rect_fits_monitor(&rect, mon) {
+                return (mon, rect);
+            }
+        }
+    }
+    let target = preferred_monitor_key
+        .and_then(|key| monitors.iter().find(|m| monitor_key(m) == key))
+        .or_else(|| monitors.first())
+        .expect("caller guarantees at least one monitor");
+    let target_key = monitor_key(target);
+    let known_position = best_known_position(cfg, &arrangement, &target_key);
+    let known_size = cfg.monitor_sizes.get(&target_key).map(|s| (s.w, s.h));
+    let rect = match (known_position, known_size) {
+        (Some((x, y)), Some((w, h))) => crate::config::WindowRect { x, y, w, h },
+        (Some((x, y)), None) => {
+            let default = default_rect_for_monitor(target);
+            crate::config::WindowRect {
+                x,
+                y,
+                w: default.w,
+                h: default.h,
+            }
+        }
+        _ => default_rect_for_monitor(target),
+    };
+    if rect_fits_monitor(&rect, target) {
+        (target, rect)
+    } else {
+        (target, default_rect_for_monitor(target))
+    }
+}
+
+/// Persist both halves of a placement: this monitor's size, and this
+/// arrangement's position on it. The one place that writes window geometry
+/// back to config.json, so every caller (the drag/resize handler, align,
+/// the display-change watcher) records data in the same shape.
+pub fn save_window_placement(
+    app: &AppHandle,
+    monitors: &[tauri::Monitor],
+    mon: &tauri::Monitor,
+    rect: &crate::config::WindowRect,
+) -> Result<crate::config::Config, String> {
+    if monitors.is_empty() {
+        // A transient enumeration failure (unwrap_or_default() in a caller)
+        // must not persist a placement keyed by the empty-string
+        // arrangement — it would never match a real lookup again but would
+        // sit in config.json forever.
+        return Err("no monitors available to key this placement by".into());
+    }
+    let key = monitor_key(mon);
+    let arrangement = arrangement_key(monitors);
+    let rect = rect.clone();
+    update_config(app, move |cfg| {
+        cfg.monitor_sizes.insert(
+            key.clone(),
+            crate::config::MonitorSize {
+                w: rect.w,
+                h: rect.h,
+            },
+        );
+        cfg.arrangement_positions.insert(
+            arrangement,
+            crate::config::ArrangementSlot {
+                monitor: key,
+                x: rect.x,
+                y: rect.y,
+            },
+        );
+    })
+}
+
 /// A window occupying about 75% of the monitor width, centered on it — the starting
 /// point for a monitor the overlay has never been positioned on before.
 pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRect {
@@ -254,12 +400,14 @@ fn clear_window_position(app: &AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("overlay") {
         if let Ok(Some(mon)) = w.current_monitor() {
             let key = monitor_key(&mon);
-            update_config(app, {
-                let key = key.clone();
-                move |cfg| {
-                    cfg.window_by_monitor.remove(&key);
-                    cfg.last_monitor = Some(key.clone());
-                }
+            // Forget this monitor everywhere, not just in the arrangement
+            // it's connected under right now — otherwise another
+            // arrangement that also placed the window on this monitor
+            // would be left pointing at a position with no remembered size.
+            update_config(app, move |cfg| {
+                cfg.monitor_sizes.remove(&key);
+                cfg.arrangement_positions
+                    .retain(|_, slot| slot.monitor != key);
             })?;
             // Reset means "start over on this monitor" — the same 30%-
             // centered rect a monitor gets the first time it's ever seen.
@@ -317,11 +465,8 @@ pub async fn align_window(app: AppHandle, axis: String) -> Result<(), String> {
         h: size.height,
     };
     apply_rect(&w, &rect);
-    let key = monitor_key(&mon);
-    update_config(&app, move |cfg| {
-        cfg.window_by_monitor.insert(key.clone(), rect);
-        cfg.last_monitor = Some(key);
-    })?;
+    let monitors = w.available_monitors().map_err(|e| e.to_string())?;
+    save_window_placement(&app, &monitors, &mon, &rect)?;
     Ok(())
 }
 
@@ -331,8 +476,8 @@ pub async fn reset_window_positions(app: AppHandle) -> Result<(), String> {
     let _guard = state.visibility_lock.lock().await;
     restore_overlay(&app)?;
     update_config(&app, |cfg| {
-        cfg.window_by_monitor.clear();
-        cfg.last_monitor = None;
+        cfg.monitor_sizes.clear();
+        cfg.arrangement_positions.clear();
         cfg.keyboard_halves_distance = crate::config::Config::default().keyboard_halves_distance;
         cfg.keyboard_halves_rotation = crate::config::Config::default().keyboard_halves_rotation;
     })?;
@@ -377,6 +522,61 @@ pub fn is_overlay_pinned(app: AppHandle) -> bool {
     app.state::<crate::state::HudState>()
         .pinned
         .load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// Watches for monitors being connected or disconnected while the app is
+/// running and re-homes the overlay for the new arrangement, instead of
+/// leaving it wherever macOS's own window server happened to shove it (which
+/// the old on_window_event handler would then dutifully save as if the user
+/// had dragged it there). Polls rather than hooking a native display-change
+/// notification — this is a personal utility app, not something where a
+/// one-second detection lag matters, and polling needs no macOS-specific FFI.
+pub fn spawn_display_watch(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut known_arrangement: Option<String> = None;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            let Some(window) = app.get_webview_window("overlay") else {
+                continue;
+            };
+            let Ok(monitors) = window.available_monitors() else {
+                continue;
+            };
+            if monitors.is_empty() {
+                continue;
+            }
+            let arrangement = arrangement_key(&monitors);
+            let changed = known_arrangement.as_deref() != Some(arrangement.as_str());
+            let is_first_read = known_arrangement.is_none();
+            known_arrangement = Some(arrangement);
+            if !changed || is_first_read {
+                continue;
+            }
+            if app
+                .state::<crate::state::HudState>()
+                .overlay_hidden
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                // Left as-is: it's off-screen by design, and will land back
+                // in the right spot next time restore_overlay runs.
+                continue;
+            }
+            let preferred = window
+                .current_monitor()
+                .ok()
+                .flatten()
+                .map(|m| monitor_key(&m));
+            let Ok(path) = config_path(&app) else {
+                continue;
+            };
+            let cfg = crate::config::load(&path);
+            let (mon, rect) = resolve_placement(&monitors, preferred.as_deref(), &cfg);
+            apply_rect(&window, &rect);
+            if let Err(error) = save_window_placement(&app, &monitors, mon, &rect) {
+                eprintln!("KeyAura: failed to persist window rect after display change: {error}");
+            }
+        }
+    });
 }
 
 // Caller holds visibility_lock. Keep the saved rect until native restoration succeeds.
@@ -702,8 +902,10 @@ pub async fn list_system_fonts() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_system_fonts, overlay_height_for_width, parse_layout_hash, rotated_board_footprint,
+        best_known_position, join_arrangement_keys, list_system_fonts, overlay_height_for_width,
+        parse_layout_hash, rotated_board_footprint,
     };
+    use crate::config::{ArrangementSlot, Config};
 
     #[test]
     fn parses_full_url() {
@@ -732,6 +934,94 @@ mod tests {
         assert_eq!(parse_layout_hash(""), None);
         assert_eq!(parse_layout_hash("https://example.com/foo"), None);
         assert_eq!(parse_layout_hash("has spaces"), None);
+    }
+
+    #[test]
+    fn arrangement_key_ignores_connection_order() {
+        let laptop = "Built-in Retina Display".to_string();
+        let external = "DELL U2720Q".to_string();
+        assert_eq!(
+            join_arrangement_keys([laptop.clone(), external.clone()]),
+            join_arrangement_keys([external, laptop])
+        );
+    }
+
+    #[test]
+    fn arrangement_key_differs_by_membership() {
+        let laptop_alone = join_arrangement_keys(["Built-in Retina Display".to_string()]);
+        let laptop_plus_external = join_arrangement_keys([
+            "Built-in Retina Display".to_string(),
+            "DELL U2720Q".to_string(),
+        ]);
+        let external_alone = join_arrangement_keys(["DELL U2720Q".to_string()]);
+        assert_ne!(laptop_alone, laptop_plus_external);
+        assert_ne!(laptop_alone, external_alone);
+        assert_ne!(laptop_plus_external, external_alone);
+    }
+
+    #[test]
+    fn best_known_position_prefers_the_arrangement_sharing_more_monitors() {
+        let mut cfg = Config::default();
+        // The laptop appears in two past arrangements. Resolving for a
+        // brand-new arrangement that includes both the laptop and the LG
+        // monitor, the second entry (sharing two members) should win over
+        // the first (sharing only the laptop).
+        cfg.arrangement_positions.insert(
+            "Built-in Retina Display".into(),
+            ArrangementSlot {
+                monitor: "Built-in Retina Display".into(),
+                x: 100.0,
+                y: 100.0,
+            },
+        );
+        cfg.arrangement_positions.insert(
+            "Built-in Retina Display|LG UltraFine".into(),
+            ArrangementSlot {
+                monitor: "Built-in Retina Display".into(),
+                x: 500.0,
+                y: 50.0,
+            },
+        );
+        let current = join_arrangement_keys([
+            "Built-in Retina Display".to_string(),
+            "LG UltraFine".to_string(),
+            "Extra Monitor".to_string(),
+        ]);
+        assert_eq!(
+            best_known_position(&cfg, &current, "Built-in Retina Display"),
+            Some((500.0, 50.0))
+        );
+    }
+
+    #[test]
+    fn best_known_position_is_deterministic_when_scores_tie() {
+        let mut cfg = Config::default();
+        cfg.arrangement_positions.insert(
+            "B".into(),
+            ArrangementSlot {
+                monitor: "shared".into(),
+                x: 1.0,
+                y: 1.0,
+            },
+        );
+        cfg.arrangement_positions.insert(
+            "A".into(),
+            ArrangementSlot {
+                monitor: "shared".into(),
+                x: 2.0,
+                y: 2.0,
+            },
+        );
+        // Neither "A" nor "B" overlaps an unrelated current arrangement, so
+        // this is a pure tie-break: it must always resolve to "A" (the
+        // lexicographically smallest key), regardless of HashMap iteration
+        // order, across repeated calls.
+        for _ in 0..20 {
+            assert_eq!(
+                best_known_position(&cfg, "unrelated", "shared"),
+                Some((2.0, 2.0))
+            );
+        }
     }
 
     #[test]
