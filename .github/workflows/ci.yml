@@ -8,8 +8,16 @@ on:
 
 jobs:
   rust:
-    name: Rust tests (macOS)
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows
+    name: Rust tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

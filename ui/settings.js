@@ -449,7 +449,12 @@ $('font-ligatures').addEventListener('change', (e) => commit('font_ligatures', e
   }));
 })();
 
-const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
+// "cmd" in a saved combo maps to the Windows key on Windows (grab.rs treats
+// them as the same physical position) — label it accordingly there instead
+// of showing a Mac glyph for a key that doesn't exist on that keyboard.
+const MOD_LABELS = navigator.userAgent.includes('Windows')
+  ? { cmd: 'Win', alt: 'Alt', ctrl: 'Ctrl', shift: 'Shift' }
+  : { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
 
