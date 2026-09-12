@@ -128,6 +128,18 @@ export function renderBoard(layoutJson, config) {
   board.innerHTML = '';
   const { unit, offX, offY, units } = computeLayout(config);
   board.style.setProperty('--key-unit', `${unit}px`);
+  // Each half's rotation pivot, frozen in pixels at this render's window
+  // size rather than left as a CSS percentage of the live window box.
+  // window.innerWidth/innerHeight change continuously during a native
+  // resize drag, but this render's key positions (below) are fixed pixel
+  // values that only catch up ~100ms after the drag settles (see hud.js's
+  // debounced 'resize' listener) — a percentage-based transform-origin
+  // would keep tracking the live window in the meantime and rotate this
+  // render's stale keys around the wrong point, which is what made the
+  // halves visibly drift sideways while resizing.
+  const pivotY = window.innerHeight / 2;
+  const leftPivot = `${window.innerWidth * 0.25}px ${pivotY}px`;
+  const rightPivot = `${window.innerWidth * 0.75}px ${pivotY}px`;
   const rects = keyRects(config.key_spacing ?? 0.06, config.keyboard_halves_distance ?? 1.6);
   const badge = document.createElement('div');
   badge.id = 'badge';
@@ -148,8 +160,10 @@ export function renderBoard(layoutJson, config) {
     el.dataset.name = layer.title || `Layer ${layer.position}`;
     const leftHalf = document.createElement('div');
     leftHalf.className = 'keyboard-half left-half';
+    leftHalf.style.transformOrigin = leftPivot;
     const rightHalf = document.createElement('div');
     rightHalf.className = 'keyboard-half right-half';
+    rightHalf.style.transformOrigin = rightPivot;
     el.append(leftHalf, rightHalf);
     layer.keys.forEach((key, i) => {
       const r = rects[i];
