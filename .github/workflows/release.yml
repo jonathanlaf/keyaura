@@ -47,6 +47,17 @@ jobs:
         with:
           ref: refs/tags/${{ steps.version.outputs.tag }}
           fetch-depth: 0
+      - name: Verify tag matches tauri.conf.json version
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${TAG#v}"
+          CONF_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
+          if [ "$TAG_VERSION" != "$CONF_VERSION" ]; then
+            echo "::error::Tag $TAG does not match tauri.conf.json version $CONF_VERSION"
+            exit 1
+          fi
       - name: Tag must be reachable from main
         id: commit
         env:
@@ -62,44 +73,13 @@ jobs:
           fi
           echo "sha=$COMMIT" >> "$GITHUB_OUTPUT"
 
-  build:
-    name: Build and release
+  notes:
+    name: Build release notes
     needs: guard
-    runs-on: macos-latest
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
+    runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.release_notes.outputs.body }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.guard.outputs.commit }}
-
-      - name: Verify tag matches tauri.conf.json version
-        env:
-          TAG: ${{ needs.guard.outputs.tag }}
-        run: |
-          TAG_VERSION="${TAG#v}"
-          CONF_VERSION=$(jq -r .version src-tauri/tauri.conf.json)
-          if [ "$TAG_VERSION" != "$CONF_VERSION" ]; then
-            echo "::error::Tag $TAG does not match tauri.conf.json version $CONF_VERSION"
-            exit 1
-          fi
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Verify Cargo.lock is current
-        working-directory: src-tauri
-        run: cargo build --locked --release
-
-      - name: Test release source and Cargo/Tauri version consistency
-        working-directory: src-tauri
-        run: cargo test --locked
-
       - name: Build release notes from merged feature pull requests
         id: release_notes
         env:
@@ -139,6 +119,49 @@ jobs:
             echo "$DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
+  build:
+    name: Build and release
+    needs: [guard, notes]
+    strategy:
+      # One platform's build failing (e.g. a Windows-only packaging issue)
+      # shouldn't cancel a healthy macOS build mid-upload to the same draft
+      # release, or vice versa. There's no job here that waits for every
+      # platform before deciding whether to publish — each leg independently
+      # uploads its artifact to the same draft release as soon as it's done.
+      # The release stays a *draft* specifically so a human checks that
+      # every expected platform's installer actually showed up before
+      # publishing it, rather than that being automated.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            bundle_glob: src-tauri/target/release/bundle/dmg/*.dmg
+          - os: windows-latest
+            bundle_glob: src-tauri/target/release/bundle/nsis/*.exe
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.commit }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Verify Cargo.lock is current
+        working-directory: src-tauri
+        run: cargo build --locked --release
+
+      - name: Test release source and Cargo/Tauri version consistency
+        working-directory: src-tauri
+        run: cargo test --locked
+
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:
@@ -146,7 +169,7 @@ jobs:
         with:
           tagName: ${{ needs.guard.outputs.tag }}
           releaseName: 'KeyAura ${{ needs.guard.outputs.tag }}'
-          releaseBody: ${{ steps.release_notes.outputs.body }}
+          releaseBody: ${{ needs.notes.outputs.body }}
           # The body above intentionally contains PR descriptions. GitHub's
           # generator would add only the final release-branch PR and commits.
           generateReleaseNotes: false
@@ -154,8 +177,10 @@ jobs:
           prerelease: false
 
       - name: Attest build provenance
-        # Depends on tauri.conf.json's bundle.targets including "dmg" — if
-        # that's ever reverted to just ["app"], this glob matches nothing.
+        # matrix.bundle_glob (defined alongside each os above) is the single
+        # source of truth for where each platform's bundler writes its
+        # installer — depends on tauri.conf.json's bundle.targets including
+        # "dmg"/"nsis"; if those are ever changed, the glob matches nothing.
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: 'src-tauri/target/release/bundle/dmg/*.dmg'
+          subject-path: ${{ matrix.bundle_glob }}

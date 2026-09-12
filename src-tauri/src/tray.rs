@@ -1,11 +1,31 @@
-#[cfg(debug_assertions)]
-use tauri::menu::Submenu;
-use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Listener, Manager};
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+    let align_top = MenuItem::with_id(app, "align-top", "Top", true, None::<&str>)?;
+    let align_bottom = MenuItem::with_id(app, "align-bottom", "Bottom", true, None::<&str>)?;
+    let align_center_h = MenuItem::with_id(
+        app,
+        "align-center-h",
+        "Center Horizontally",
+        true,
+        None::<&str>,
+    )?;
+    let align_center_v = MenuItem::with_id(
+        app,
+        "align-center-v",
+        "Center Vertically",
+        true,
+        None::<&str>,
+    )?;
+    let align = Submenu::with_items(
+        app,
+        "Align",
+        true,
+        &[&align_top, &align_bottom, &align_center_h, &align_center_v],
+    )?;
     let toggle = MenuItem::with_id(app, "toggle", "Hide keyboard", true, None::<&str>)?;
     #[cfg(debug_assertions)]
     let force_connection = MenuItem::with_id(
@@ -49,7 +69,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         &[&devtools, &force_connection, &refresh],
     )?;
     let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> =
-        vec![&settings, &separator, &pin, &toggle, &legend];
+        vec![&settings, &align, &separator, &pin, &toggle, &legend];
     #[cfg(debug_assertions)]
     items.push(&dev_separator);
     #[cfg(debug_assertions)]
@@ -92,6 +112,22 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .icon_as_template(true)
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
+            id @ ("align-top" | "align-bottom" | "align-center-h" | "align-center-v") => {
+                let axis = match id {
+                    "align-top" => "top",
+                    "align-bottom" => "bottom",
+                    "align-center-h" => "horizontal",
+                    "align-center-v" => "vertical",
+                    _ => unreachable!("outer match restricts id to the four align- variants"),
+                }
+                .to_string();
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = crate::app::align_window(app.clone(), axis).await {
+                        eprintln!("KeyAura: tray align failed: {error}");
+                    }
+                });
+            }
             "refresh" => {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
