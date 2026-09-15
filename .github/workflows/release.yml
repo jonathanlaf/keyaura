@@ -175,6 +175,12 @@ jobs:
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the updater artifact so the updater plugin's pubkey (in
+          # tauri.conf.json) can verify it before installing. Harmless on
+          # the Windows leg too even though nothing there consumes it yet —
+          # auto-update is macOS-only for now (see src/updater.rs).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.guard.outputs.tag }}
           releaseName: 'KeyAura ${{ needs.guard.outputs.tag }}'
@@ -186,6 +192,15 @@ jobs:
           prerelease: false
 
       - name: Rename release asset for platform clarity
+        # macOS only: on Windows, the NSIS installer IS the updater
+        # artifact itself (self-contained — no separate archive, unlike
+        # macOS's dedicated KeyAura.app.tar.gz), so latest.json's Windows
+        # entry points at this exact uploaded filename. Renaming it here
+        # would leave that entry referencing a deleted asset. Revisit this
+        # once Windows auto-update is actually wired up (see src/updater.rs)
+        # — the rename would need to happen before tauri-action's own
+        # upload, or the manifest patched to match.
+        if: matrix.os == 'macos-latest'
         # tauri-action just uploaded the bundler's default filename (e.g.
         # KeyAura_0.1.4_aarch64.dmg) — upload a copy under a clearer,
         # platform-labeled name, then remove the original so the draft
