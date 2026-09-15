@@ -7,18 +7,33 @@ mod hid;
 mod layout;
 mod state;
 mod tray;
+// Auto-update is scoped to macOS for now — the plugin itself is
+// cross-platform, but the Windows/Linux install-and-relaunch paths haven't
+// been tested on real hardware yet (see grab.rs's own macOS/Windows split
+// for the project's established pattern of adding a platform once it's
+// actually verifiable).
+#[cfg(target_os = "macos")]
+mod updater;
 
 use tauri::{Emitter, Listener, Manager};
 
 fn main() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // Register first so a second launch exits before it can create a
         // second overlay, keyboard connection, or tray menu.
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
-        ))
+        ));
+    // Auto-update is macOS-only for now (see the `mod updater` comment
+    // above) — these plugins are macOS-only Cargo dependencies too, so
+    // registering them unconditionally wouldn't even compile elsewhere.
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .setup(|app| {
             app.manage(state::HudState::new());
             let app_handle = app.handle().clone();
@@ -76,6 +91,8 @@ fn main() {
             hid::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
             app::spawn_display_watch(app.handle().clone());
+            #[cfg(target_os = "macos")]
+            updater::spawn_startup_check(app.handle().clone());
             tray::build(app.handle())?;
             if start_hidden {
                 let app_handle = app.handle().clone();

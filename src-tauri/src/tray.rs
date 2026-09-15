@@ -44,6 +44,14 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             "Unpin keyboard"
         });
     }
+    #[cfg(target_os = "macos")]
+    let check_for_updates = MenuItem::with_id(
+        app,
+        "check-for-updates",
+        "Check for Updates…",
+        true,
+        None::<&str>,
+    )?;
     let about = MenuItem::with_id(app, "about", "About", true, None::<&str>)?;
     let legend = MenuItem::with_id(
         app,
@@ -74,6 +82,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     items.push(&dev_separator);
     #[cfg(debug_assertions)]
     items.push(&developer);
+    #[cfg(target_os = "macos")]
+    items.push(&check_for_updates);
     items.push(&about);
     items.push(&end_separator);
     items.push(&quit);
@@ -241,6 +251,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 {
                     eprintln!("KeyAura: failed to open icon legend: {e}");
                 }
+            }
+            #[cfg(target_os = "macos")]
+            "check-for-updates" => {
+                crate::updater::spawn_manual_check(app.clone());
             }
             "about" => {
                 if let Some(w) = app.get_webview_window("about") {
