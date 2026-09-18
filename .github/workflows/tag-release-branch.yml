@@ -4,6 +4,15 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing tag to re-run the release build for (e.g. v0.1.5) — for
+          recovering from a release build that failed after the tag was
+          already created. Does not create or move any tag.
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,19 +21,24 @@ jobs:
   tag:
     name: Tag merged release
     if: >-
-      github.event.pull_request.merged == true &&
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
       github.event.pull_request.base.ref == 'main' &&
-      startsWith(github.event.pull_request.head.ref, 'release/v')
+      startsWith(github.event.pull_request.head.ref, 'release/v'))
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.version.outputs.tag }}
+      tag: ${{ steps.version.outputs.tag || steps.existing_tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: >-
+            ${{ github.event_name == 'workflow_dispatch'
+              && format('refs/tags/{0}', inputs.tag)
+              || github.event.pull_request.merge_commit_sha }}
           fetch-depth: 1
 
       - name: Validate release branch and version
+        if: github.event_name != 'workflow_dispatch'
         id: version
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
@@ -43,7 +57,35 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Use the provided existing tag
+        # This path only re-enters the proven tag -> workflow_call chain for
+        # a tag that already exists (e.g. its release build failed after
+        # tagging) — it never creates or moves a tag itself. Direct pushes
+        # to release.yml's own `push: tags` trigger have been observed to
+        # get a GITHUB_TOKEN that GitHub's API rejects for release creation
+        # ("Resource not accessible by integration") even with identical
+        # declared permissions — going through this workflow_call path
+        # (with `secrets: inherit`, see the release job below) is what's
+        # actually proven to work for every past release.
+        if: github.event_name == 'workflow_dispatch'
+        id: existing_tag
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag must match vX.Y.Z (got $TAG)"
+            exit 1
+          fi
+          if ! git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG was not found (checkout would have failed already, but double-checking)."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Create and push release tag
+        if: github.event_name != 'workflow_dispatch'
         env:
           TAG: ${{ steps.version.outputs.tag }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
