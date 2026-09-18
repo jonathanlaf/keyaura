@@ -71,7 +71,15 @@ jobs:
       id-token: write
       attestations: write
     # GITHUB_TOKEN tag pushes do not trigger other workflows. Call the same
-    # release workflow directly so no additional token or secret is needed.
+    # release workflow directly instead. A called workflow does NOT
+    # automatically see the caller's secrets (only the built-in
+    # GITHUB_TOKEN is implicitly available) — `secrets: inherit` is
+    # required for release.yml's TAURI_SIGNING_PRIVATE_KEY/_PASSWORD to
+    # actually reach the tauri-action step; without it they're silently
+    # empty strings there, which fails signing with a confusing
+    # "Missing comment in secret key" error instead of a clear one about
+    # a missing secret.
     uses: ./.github/workflows/release.yml
+    secrets: inherit
     with:
       tag: ${{ needs.tag.outputs.tag }}
